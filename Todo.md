@@ -2,7 +2,7 @@
 
 **Version:** 1.0  
 **Date:** 2026-10-30  
-**Status:** Backlog → Sprint planning
+**Status:** Sprint 1 complete → Sprint 2 planning
 
 ---
 
@@ -22,11 +22,11 @@
 
 | ID       | Task                                                                                                                                                           | Priority | Status | DoD                                                     |
 | -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------- | ------ | ------------------------------------------------------- |
-| **T101** | `core/bot.py`: `PiTunnelBot` class extending `Application` (PTB v21), long polling setup, signal handling (SIGTERM/SIGINT)                                     | P0       | []     | `python -m pitunnel.main` starts and shuts down cleanly |
-| **T102** | `core/auth.py`: `AuthorizeMiddleware` filters `Update` by `authorized_users`; logs `WARNING` with `user_id` if unauthorized                                    | P0       | []     | Unauthorized user → no response, visible log            |
-| **T103** | `core/i18n.py`: ES/EN string loader from YAML; helper `t(key, **kwargs)`                                                                                       | P1       | []     | `/help` shows texts in configured language              |
-| **T104** | `core/errors.py`: Typed exceptions (`UnauthorizedError`, `WhitelistError`, `TimeoutError`, `SensorError`) + global handler mapping to user messages (§4 table) | P0       | []     | Controlled errors → friendly message + structured log   |
-| **T105** | `core/logging.py`: JSON config (structlog or python-json-logger) with fields: `ts`, `level`, `user_id`, `command`, `duration_ms`, `exit_code`                  | P1       | []     | `journalctl -u pitunnel -o json` shows parseable logs   |
+| **T101** | `core/bot.py`: `PiTunnelBot` class extending `Application` (PTB v21), long polling setup, signal handling (SIGTERM/SIGINT)                                     | P0       | [x]    | `python -m pitunnel.main` starts and shuts down cleanly |
+| **T102** | `core/auth.py`: `AuthorizeMiddleware` filters `Update` by `authorized_users`; logs `WARNING` with `user_id` if unauthorized                                    | P0       | [x]    | Unauthorized user → no response, visible log            |
+| **T103** | `core/i18n.py`: ES/EN string loader from YAML; helper `t(key, **kwargs)`                                                                                       | P1       | [x]    | `/help` shows texts in configured language              |
+| **T104** | `core/errors.py`: Typed exceptions (`UnauthorizedError`, `WhitelistError`, `TimeoutError`, `SensorError`) + global handler mapping to user messages (§4 table) | P0       | [x]    | Controlled errors → friendly message + structured log   |
+| **T105** | `core/logging.py`: JSON config (structlog or python-json-logger) with fields: `ts`, `level`, `user_id`, `command`, `duration_ms`, `exit_code`                  | P1       | [x]    | `journalctl -u pitunnel -o json` shows parseable logs   |
 
 ---
 
@@ -34,10 +34,10 @@
 
 | ID       | Task                                                                                                                                                                                   | Priority | Status | DoD                                                                             |
 | -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------- | ------ | ------------------------------------------------------------------------------- |
-| **T201** | `commands/registry.py`: Load `commands.aliases` from `config.yaml`; validate no duplicate keys                                                                                         | P0       | []     | Invalid alias → startup error                                                   |
-| **T202** | `commands/executor.py`: `run_alias(alias: str) -> CommandResult` using `subprocess.run(args, timeout=10, capture_output=True, text=True, shell=False)`; truncate to `max_output_chars` | P0       | []     | `restart-mqtt` executes `systemctl restart mosquitto` and returns stdout/stderr |
-| **T203** | `commands/confirm.py`: Inline confirmation flow for aliases marked `destructive: true`; callback data signed (HMAC) + 60s expiry                                                       | P1       | []     | `/cmd reboot` shows "✅ Confirm" / "❌ Cancel"; executes only after ✅          |
-| **T204** | Command handlers: `/start`, `/help`, `/cmd <alias>`, `/history [n]` in `handlers/admin.py`                                                                                             | P0       | []     | All respond < 2s; `/help` lists dynamically per allowlist                       |
+| **T201** | `commands/registry.py`: Load `commands.aliases` from `config.yaml`; validate no duplicate keys                                                                                         | P0       | [x]    | Invalid alias → startup error                                                   |
+| **T202** | `commands/executor.py`: `run_alias(alias: str) -> CommandResult` using `subprocess.run(args, timeout=10, capture_output=True, text=True, shell=False)`; truncate to `max_output_chars` | P0       | [x]    | `restart-mqtt` executes `systemctl restart mosquitto` and returns stdout/stderr |
+| **T203** | `commands/confirm.py`: Inline confirmation flow for aliases marked `destructive: true`; callback data signed (HMAC) + 60s expiry                                                       | P1       | [x]    | `/cmd reboot` shows "✅ Confirm" / "❌ Cancel"; executes only after ✅          |
+| **T204** | Command handlers: `/start`, `/help`, `/cmd <alias>`, `/history [n]` in `handlers/admin.py`                                                                                             | P0       | [x]    | All respond < 2s; `/help` lists dynamically per allowlist                       |
 
 ---
 
@@ -150,4 +150,14 @@
 
 ## 🎯 Immediate Next Step
 
-Generate project skeleton (folders, `pyproject.toml`, `config.yaml.example`, empty `main.py`, `systemd` unit) to kick off **Sprint 0**.
+Sprint 1 complete! Bot core and command system are implemented with:
+- Authorization via allowlist filter
+- Structured JSON logging
+- Internationalization (ES/EN)
+- Typed exceptions with global error handler
+- Command registry with whitelist validation
+- Safe command executor with timeout and truncation
+- Inline confirmation flow for destructive commands
+- Command handlers: `/start`, `/help`, `/cmd`, `/history`
+
+**Next: Sprint 2** - Implement `/status` system monitoring (T301–T302) and persistent history storage (T701–T703).

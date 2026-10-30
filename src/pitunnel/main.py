@@ -1,39 +1,22 @@
 """
-Main entry point for PiTunnel bot
+Main entry point for PiTunnel bot.
 """
-import logging
+from pitunnel.core.bot import create_bot
+from pitunnel.core.config import Config, load_env
 
-from telegram import Update
-from telegram.ext import Application, CommandHandler
-
-# Configure logging
-logging.basicConfig(
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-    level=logging.INFO,
-)
-logger = logging.getLogger(__name__)
-
-async def start(update: Update, context) -> None:
-    """Send a message when the command /start is issued."""
-    if update.message is not None:
-        await update.message.reply_text('Hello! Welcome to PiTunnel bot.')
-
-async def help_command(update: Update, context) -> None:
-    """Send a message when the command /help is issued."""
-    if update.message is not None:
-        await update.message.reply_text('Help message goes here.')
 
 def main() -> None:
     """Start the bot."""
-    # Create the Application and pass it your bot's token.
-    application = Application.builder().token("YOUR_TOKEN_HERE").build()
+    # Load environment variables
+    load_env()
 
-    # Register command handlers
-    application.add_handler(CommandHandler("start", start))
-    application.add_handler(CommandHandler("help", help_command))
+    # Load configuration
+    config = Config.load()
 
-    # Run the bot until the user presses Ctrl-C
-    application.run_polling(allowed_updates=Update.ALL_TYPES)
+    # Create and run bot
+    bot = create_bot(config)
+    bot.run()
+
 
 if __name__ == "__main__":
     main()

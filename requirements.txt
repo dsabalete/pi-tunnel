@@ -5,6 +5,7 @@ psutil
 pyyaml
 apscheduler
 aiofiles
+orjson
 pytest
 pytest-asyncio
 ruff

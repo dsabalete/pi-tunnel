@@ -25,6 +25,7 @@ dependencies = [
     "pyyaml",
     "apscheduler",
     "aiofiles",
+    "orjson",
 ]
 
 [project.optional-dependencies]
