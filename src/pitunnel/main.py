@@ -1,12 +1,10 @@
 """
 Main entry point for PiTunnel bot
 """
-import asyncio
 import logging
-from pathlib import Path
 
 from telegram import Update
-from telegram.ext import Application, CommandHandler, MessageHandler, filters
+from telegram.ext import Application, CommandHandler
 
 # Configure logging
 logging.basicConfig(
@@ -17,11 +15,13 @@ logger = logging.getLogger(__name__)
 
 async def start(update: Update, context) -> None:
     """Send a message when the command /start is issued."""
-    await update.message.reply_text('Hello! Welcome to PiTunnel bot.')
+    if update.message is not None:
+        await update.message.reply_text('Hello! Welcome to PiTunnel bot.')
 
 async def help_command(update: Update, context) -> None:
     """Send a message when the command /help is issued."""
-    await update.message.reply_text('Help message goes here.')
+    if update.message is not None:
+        await update.message.reply_text('Help message goes here.')
 
 def main() -> None:
     """Start the bot."""
