@@ -1,0 +1,40 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# C extensions
+*.so
+build/
+dist/
+*.egg-info/
+
+# Virtual environments
+venv/
+env/
+.venv/
+virtualenv/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Logs
+*.log
+
+# Configuration files (these should be in config/)
+config/pitunnel.env
+config/config.yaml
+
+# System
+.DS_Store
+Thumbs.db
+
+# Local settings
+.local
+
+# Temporary files
+*~
+*.tmp

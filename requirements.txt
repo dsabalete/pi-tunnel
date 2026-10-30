@@ -1,0 +1,12 @@
+python-telegram-bot>=21
+gpiozero
+smbus2
+psutil
+pyyaml
+apscheduler
+aiofiles
+pytest
+pytest-asyncio
+ruff
+mypy
+pre-commit

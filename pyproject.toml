@@ -1,0 +1,58 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pi-tunnel"
+version = "1.0.0"
+description = "Telegram bot for remote Raspberry Pi control"
+authors = [
+    {name = "PiTunnel Team"},
+]
+license = {text = "MIT"}
+readme = "README.md"
+requires-python = ">=3.11"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: POSIX :: Linux",
+]
+dependencies = [
+    "python-telegram-bot>=21",
+    "gpiozero",
+    "smbus2",
+    "psutil",
+    "pyyaml",
+    "apscheduler",
+    "aiofiles",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest",
+    "pytest-asyncio",
+    "ruff",
+    "mypy",
+    "pre-commit",
+]
+
+[project.scripts]
+pitunnel = "pitunnel.main:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["pitunnel*"]
+
+[tool.ruff]
+line-length = 88
+target-version = "py311"
+
+[tool.mypy]
+python_version = "3.11"
+warn_return_values = true
+warn_unused_ignores = true
+strict_optional = true
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
