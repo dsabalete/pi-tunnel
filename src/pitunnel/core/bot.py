@@ -5,11 +5,13 @@ from __future__ import annotations
 
 import signal
 import sys
+from datetime import time
 from typing import Any
 
 from telegram import Update
 from telegram.ext import (
     Application,
+    CallbackContext,
 )
 
 from pitunnel.commands.confirm import ConfirmationManager
@@ -20,6 +22,8 @@ from pitunnel.core.config import Config, load_env
 from pitunnel.core.errors import error_handler
 from pitunnel.core.i18n import set_language
 from pitunnel.core.logging import get_logger, setup_logging
+from pitunnel.storage.db import Database
+from pitunnel.storage.history import History
 
 logger = get_logger(__name__)
 
@@ -57,15 +61,21 @@ class PiTunnelBot:
         # Store config in bot_data for access in handlers
         self.application.bot_data["config"] = config
 
+        # Initialize storage
+        self.database = Database(config)
+        self.history = History(self.database)
+        self.database.init_schema()
+
         # Initialize components
         self.registry = CommandRegistry(config)
-        self.executor = CommandExecutor(config)
+        self.executor = CommandExecutor(config, history_logger=self.history)
         self.confirmation_manager = ConfirmationManager()
 
         # Store in bot_data for handlers
         self.application.bot_data["registry"] = self.registry
         self.application.bot_data["executor"] = self.executor
         self.application.bot_data["confirmation_manager"] = self.confirmation_manager
+        self.application.bot_data["history_logger"] = self.history
 
         # Set up error handler
         self.application.add_error_handler(error_handler)
@@ -105,6 +115,17 @@ class PiTunnelBot:
         await self.application.start()
         logger.info("PiTunnel bot started")
 
+        # Schedule daily purge job
+        retention_days = getattr(self.config.limits, "history_retention_days", 30)
+        self.application.job_queue.run_daily(
+            self._purge_old_history,
+            time=time(3, 0),  # 03:00 local time
+            days=(0, 1, 2, 3, 4, 5, 6),  # Every day
+            name="purge_old_history",
+            data=retention_days,
+        )
+        logger.info("Daily history purge job scheduled at 03:00")
+
         # Send startup alert
         await self._send_startup_alert()
 
@@ -123,6 +144,22 @@ class PiTunnelBot:
                     "Failed to send startup alert",
                     extra={"user_id": user_id, "error": str(e)}
                 )
+
+    async def _purge_old_history(self, context: CallbackContext) -> None:
+        """Daily job to purge old history entries."""
+        retention_days = context.job.data if context.job.data else 30
+        try:
+            deleted = self.history.purge_older_than(retention_days)
+            logger.info(
+                "Daily history purge completed",
+                extra={"deleted_rows": deleted, "retention_days": retention_days}
+            )
+        except Exception as e:  # noqa: BLE001
+            logger.error(
+                "Daily history purge failed",
+                extra={"error": str(e)},
+                exc_info=e
+            )
 
     async def stop(self) -> None:
         """Stop the bot gracefully."""

@@ -3,10 +3,11 @@
 from __future__ import annotations
 
 import re
-import sqlite3
 import time
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
+
+from pitunnel.storage.history import History
 
 
 @dataclass
@@ -41,13 +42,19 @@ class AlertEngine:
 
     Responsibilities:
     - Evaluate rule expressions against reading values
-    - Enforce per-rule cooldown periods using SQLite state
+    - Enforce per-rule cooldown periods using unified History storage
     - Dispatch startup notification once on bot init
     """
 
-    def __init__(self, config_path: str = "config.yaml", db_path: str = "db.sqlite3"):
+    def __init__(
+        self,
+        config_path: str = "config.yaml",
+        db_path: str = "db.sqlite3",
+        history: Optional[History] = None,
+    ):
         self.config_path = config_path
         self.db_path = db_path
+        self.history = history
         self._startup_notification_sent = False
 
     def load_rules(self) -> List[AlertRule]:
@@ -124,6 +131,13 @@ class AlertEngine:
                         )
                     )
                 else:
+                    # Log the alert to history
+                    if self.history is not None:
+                        self.history.log_alert(
+                            rule_id=rule.rule_id,
+                            sensor_id=rule.sensor_id,
+                            value=value,
+                        )
                     triggered.append(
                         AlertResult(
                             rule_id=rule.rule_id,
@@ -176,67 +190,35 @@ class AlertEngine:
     def _check_cooldown(self, rule_id: str) -> bool:
         """Return True if the rule is currently suppressed by cooldown.
 
-        Updates last_sent_ts in SQLite if the rule just triggered
-        (i.e. not suppressed). Returns False and updates timestamp
-        when the cooldown period has elapsed.
+        Uses History.get_last_alert_ts() for cooldown tracking.
+        Returns False and updates timestamp when the cooldown period has elapsed.
         """
-        conn = sqlite3.connect(self.db_path)
-        try:
-            cur = conn.cursor()
-            # Ensure table and schema exist
-            cur.execute(
-                """
-                CREATE TABLE IF NOT EXISTS alert_history (
-                    rule_id TEXT NOT NULL,
-                    sensor_id TEXT NOT NULL,
-                    last_sent_ts REAL NOT NULL
-                )
-                """
-            )
-
-            now = time.time()
-
-            # Get existing timestamp for this rule
-            row = cur.execute(
-                "SELECT last_sent_ts FROM alert_history WHERE rule_id = ?",
-                (rule_id,),
-            ).fetchone()
-
-            if row is None:
-                # First occurrence – record timestamp and return False (not suppressed)
-                cur.execute(
-                    "INSERT INTO alert_history (rule_id, sensor_id, last_sent_ts) VALUES (?, ?, ?)",
-                    (rule_id, "unknown", now),
-                )
-                conn.commit()
-                return False
-
-            # Determine cooldown from config
-            cooldown_sec = self._rule_cooldown_seconds(rule_id)
-            elapsed = now - row[0]
-
-            if elapsed < cooldown_sec:
-                # Still within cooldown – suppress, do NOT update timestamp
-                return True
-
-            # Cooldown elapsed – update timestamp and allow
-            cur.execute(
-                "UPDATE alert_history SET last_sent_ts = ? WHERE rule_id = ?",
-                (now, rule_id),
-            )
-            conn.commit()
+        if self.history is None:
+            # No history logger - no cooldown enforcement
             return False
-        finally:
-            conn.close()
 
-    def _rule_cooldown_seconds(self, rule_id: str) -> float:
-        """Return cooldown period in seconds for the given rule id by re-loading config."""
+        last_ts = self.history.get_last_alert_ts(rule_id)
+        if last_ts is None:
+            # No previous alert - not suppressed
+            return False
+
+        # Find the rule to get its cooldown
         rules = self.load_rules()
-        for rule in rules:
+        cooldown_sec = 60 * 60  # Default 1 hour
+        for rule in self.load_rules():
             if rule.rule_id == rule_id:
-                return rule.cooldown_min * 60
-        # Default fallback
-        return 60 * 60  # 1 hour
+                cooldown_sec = rule.cooldown_min * 60
+                break
+
+        now = time.time()
+        elapsed = now - last_ts
+
+        if elapsed < cooldown_sec:
+            # Still within cooldown – suppress
+            return True
+
+        # Cooldown elapsed – allow
+        return False
 
     def record_startup_notification(self) -> None:
         """Mark that the startup notification has been sent.

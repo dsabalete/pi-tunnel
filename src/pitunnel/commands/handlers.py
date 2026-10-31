@@ -25,11 +25,15 @@ logger = get_logger(__name__)
 _alert_engine: Optional[AlertEngine] = None
 
 
-def get_alert_engine() -> AlertEngine:
-    """Return the global AlertEngine instance, lazily initializing it."""
+def get_alert_engine(history: Optional[Any] = None) -> AlertEngine:
+    """Return the global AlertEngine instance, lazily initializing it.
+
+    Args:
+        history: Optional History instance for cooldown/alert persistence.
+    """
     global _alert_engine
     if _alert_engine is None:
-        _alert_engine = AlertEngine()
+        _alert_engine = AlertEngine(history=history)
     return _alert_engine
 
 
@@ -45,7 +49,8 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     await update.message.reply_text(t("welcome"))
 
     # Send startup notification once
-    engine = get_alert_engine()
+    history_logger = context.bot_data.get("history_logger")
+    engine = get_alert_engine(history=history_logger)
     if engine.should_send_startup():
         engine.record_startup_notification()
         # Dispatch to all authorized users
@@ -110,7 +115,8 @@ async def cmd_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         return
 
     # Execute directly
-    result = executor.run_alias(alias, cmd_info.command)
+    cmd_args = " ".join(context.args[1:]) if len(context.args) > 1 else ""
+    result = executor.run_alias(alias, cmd_info.command, user_id=user_id, cmd_args=cmd_args)
 
     # Format response
     if result.exit_code == 0:
@@ -131,10 +137,47 @@ async def history_command(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     if update.message is None:
         return
 
-    # TODO: Implement when storage is ready (T703)
-    _ = context.args  # limit = int(args[0]) if args else 10
+    # Get limit from args (default 10)
+    limit = 10
+    if context.args:
+        try:
+            limit = int(context.args[0])
+            if limit < 1 or limit > 100:
+                limit = 10
+        except ValueError:
+            limit = 10
 
-    await update.message.reply_text(t("history_empty"))
+    # Get history from storage
+    history_logger = context.bot_data.get("history_logger")
+    if history_logger is None:
+        # Fallback: try to get from bot_data
+        from pitunnel.storage.history import History
+        from pitunnel.storage.db import Database
+        from pitunnel.core.config import Config
+        # This shouldn't happen in normal operation
+        await update.message.reply_text(t("history_empty"))
+        return
+
+    entries = history_logger.get_history(limit=limit)
+
+    if not entries:
+        await update.message.reply_text(t("history_empty"))
+        return
+
+    # Format history entries
+    lines = [t("history_title", count=len(entries))]
+    for entry in entries:
+        # Format timestamp
+        ts = entry["ts"]
+        from datetime import datetime
+        dt = datetime.fromtimestamp(ts).strftime("%Y-%m-%d %H:%M:%S")
+        user = entry["user_id"]
+        alias = entry["alias"]
+        exit_code = entry["exit_code"]
+        lines.append(t("history_entry", ts=dt, user=user, alias=alias, exit=exit_code))
+
+    text = "\n".join(lines)
+    await update.message.reply_text(text, parse_mode="Markdown")
 
 
 async def status_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -187,21 +230,24 @@ async def alerts_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     if update.message is None:
         return
 
-    engine = get_alert_engine()
+    history_logger = context.bot_data.get("history_logger")
+    engine = get_alert_engine(history=history_logger)
 
     # Evaluate rules against an empty reading list (rules check config + DB state)
     # In a full integration, sensor readings would be passed here.
     # For now, just report the rule status from the engine's DB state.
     # We'll mark cooldown based on what's in alert_history.
-    conn = sqlite3.connect(engine.db_path)
-    try:
-        cur = conn.cursor()
-        cur.execute(
-            "SELECT rule_id, last_sent_ts FROM alert_history"
-        )
-        rows = cur.fetchall()
-    finally:
-        conn.close()
+    rows = []
+    if history_logger is not None:
+        conn = sqlite3.connect(engine.db_path)
+        try:
+            cur = conn.cursor()
+            cur.execute(
+                "SELECT rule_id, last_sent_ts FROM alert_history"
+            )
+            rows = cur.fetchall()
+        finally:
+            conn.close()
 
     # Load rules from config
     rules = engine.load_rules()
@@ -278,6 +324,10 @@ async def _eval_alert_job(context: Any) -> None:
     storage and passed to AlertEngine.evaluate_rules().
     For now, we just ensure the engine is initialized and log the run.
     """
-    engine = get_alert_engine()
+    # Try to get history logger from application context
+    history_logger = None
+    if hasattr(context, "application") and context.application:
+        history_logger = context.application.bot_data.get("history_logger")
+    engine = get_alert_engine(history=history_logger)
     logger.info("_eval_alert_job triggered (30s interval)")
     # TODO: fetch current sensor readings and call engine.evaluate_rules(readings)

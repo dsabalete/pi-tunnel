@@ -7,6 +7,7 @@ import shlex
 import subprocess
 import time
 from dataclasses import dataclass
+from typing import Any, Optional
 
 from pitunnel.core.config import Config
 from pitunnel.core.logging import get_logger
@@ -31,23 +32,33 @@ class CommandExecutor:
     Uses subprocess.run with shell=False, timeout, and output truncation.
     """
 
-    def __init__(self, config: Config) -> None:
+    def __init__(self, config: Config, history_logger: Optional[Any] = None) -> None:
         """
         Initialize executor with config.
 
         Args:
             config: Configuration object.
+            history_logger: Optional History instance for logging commands.
         """
         self.timeout = config.limits.command_timeout_s
         self.max_output_chars = config.limits.max_output_chars
+        self.history_logger = history_logger
 
-    def run_alias(self, alias: str, command: str) -> CommandResult:
+    def run_alias(
+        self,
+        alias: str,
+        command: str,
+        user_id: int = 0,
+        cmd_args: str = "",
+    ) -> CommandResult:
         """
         Execute a command by alias.
 
         Args:
             alias: Command alias (for logging).
             command: Full command string to execute.
+            user_id: Telegram user ID for history logging.
+            cmd_args: Telegram command arguments for history logging.
 
         Returns:
             CommandResult with execution details.
@@ -76,12 +87,14 @@ class CommandExecutor:
                 "Command timed out",
                 extra={"alias": alias, "timeout": self.timeout}
             )
-            return CommandResult(
+            result = CommandResult(
                 exit_code=-1,
                 stdout=e.stdout.decode() if e.stdout else "",
                 stderr=e.stderr.decode() if e.stderr else "",
                 duration_ms=duration * 1000,
             )
+            self._log_command(alias, user_id, cmd_args, result)
+            return result
         except Exception as e:
             duration = time.monotonic() - start
             logger.error(
@@ -89,12 +102,14 @@ class CommandExecutor:
                 extra={"alias": alias, "error": str(e)},
                 exc_info=e
             )
-            return CommandResult(
+            result = CommandResult(
                 exit_code=-1,
                 stdout="",
                 stderr=str(e),
                 duration_ms=duration * 1000,
             )
+            self._log_command(alias, user_id, cmd_args, result)
+            return result
 
         duration = time.monotonic() - start
 
@@ -122,10 +137,37 @@ class CommandExecutor:
             }
         )
 
-        return CommandResult(
+        result = CommandResult(
             exit_code=result.returncode,
             stdout=stdout,
             stderr=stderr,
             duration_ms=duration * 1000,
             truncated=truncated,
         )
+        self._log_command(alias, user_id, cmd_args, result)
+        return result
+
+    def _log_command(
+        self,
+        alias: str,
+        user_id: int,
+        cmd_args: str,
+        result: CommandResult,
+    ) -> None:
+        """Log command execution to history if history_logger is set."""
+        if self.history_logger is not None:
+            try:
+                self.history_logger.log_command(
+                    user_id=user_id,
+                    alias=alias,
+                    args=cmd_args,
+                    exit_code=result.exit_code,
+                    stdout=result.stdout,
+                    stderr=result.stderr,
+                )
+            except Exception as e:
+                logger.error(
+                    "Failed to log command to history",
+                    extra={"alias": alias, "error": str(e)},
+                    exc_info=e,
+                )
