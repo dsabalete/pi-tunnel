@@ -4,7 +4,8 @@ Command handlers for PiTunnel.
 from __future__ import annotations
 
 import asyncio
-from typing import Any
+import time
+from typing import Any, List, Optional
 
 from telegram import Update
 from telegram.ext import CallbackQueryHandler, CommandHandler, ContextTypes
@@ -233,24 +234,8 @@ async def alerts_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     history_logger = context.bot_data.get("history_logger")
     engine = get_alert_engine(history=history_logger)
 
-    # Evaluate rules against an empty reading list (rules check config + DB state)
-    # In a full integration, sensor readings would be passed here.
-    # For now, just report the rule status from the engine's DB state.
-    # We'll mark cooldown based on what's in alert_history.
-    rows = []
-    if history_logger is not None:
-        conn = sqlite3.connect(engine.db_path)
-        try:
-            cur = conn.cursor()
-            cur.execute(
-                "SELECT rule_id, last_sent_ts FROM alert_history"
-            )
-            rows = cur.fetchall()
-        finally:
-            conn.close()
-
-    # Load rules from config
-    rules = engine.load_rules()
+    # Load rules from config object
+    rules = context.bot_data["config"].alerts.rules
 
     # Build status lines
     lines: List[str] = [t("alerts_title")]
@@ -261,24 +246,25 @@ async def alerts_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         when = rule.when
         cooldown_min = rule.cooldown_min
 
-        # Determine current status from DB
+        # Determine current status from history logger
         status_label = "OK"
-        for row in rows:
-            if row[0] == rule_id:
-                elapsed_hours = (time.time() - row[1]) / 3600
-                if elapsed_hours < cooldown_min:
+        if history_logger is not None:
+            last_ts = history_logger.get_last_alert_ts(rule_id)
+            if last_ts is not None:
+                elapsed_seconds = time.time() - last_ts
+                cooldown_seconds = cooldown_min * 60
+                if elapsed_seconds < cooldown_seconds:
                     status_label = "COOLDOWN"
                 else:
                     status_label = "OK"
-                break
 
         lines.append(
             t(
                 "alert_rule",
-                rule_id=rule_id,
-                sensor_id=sensor_id,
-                threshold=when,
-                cooldown=f"{cooldown_min} min",
+                id=rule_id,
+                sensor=sensor_id,
+                when=when,
+                cooldown=f"{cooldown_min}",
                 status=status_label,
             )
         )

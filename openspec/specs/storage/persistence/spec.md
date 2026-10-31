@@ -17,6 +17,10 @@ The system SHALL provide a SQLite connection using WAL journal mode for concurre
 - **WHEN** migrations run
 - **THEN** `schema_version` table reflects the latest applied migration number
 
+#### Scenario: WAL checkpoint on purge
+- **WHEN** `purge_older_than()` completes
+- **THEN** WAL checkpoint (TRUNCATE mode) is attempted to control file size
+
 ### Requirement: Command history persistence
 The system SHALL store every executed command with timestamp, user ID, alias, arguments, exit code, stdout, and stderr.
 
@@ -27,6 +31,10 @@ The system SHALL store every executed command with timestamp, user ID, alias, ar
 #### Scenario: History query returns recent commands
 - **WHEN** `/history N` is invoked
 - **THEN** the system returns the last N commands ordered by timestamp descending
+
+#### Scenario: Handler integrates with history API
+- **WHEN** `/history [n]` command is received
+- **THEN** handler calls `History.get_history(limit=n)` and formats response as Markdown
 
 ### Requirement: Sensor readings persistence
 The system SHALL store sensor readings with timestamp, sensor ID, value, and unit.
@@ -48,7 +56,7 @@ The system SHALL store alert events with timestamp, rule ID, sensor ID, and the 
 
 #### Scenario: Cooldown lookup uses alert history
 - **WHEN** the alert engine checks cooldown for a rule
-- **THEN** it queries the latest `last_sent_ts` from `alert_history` for that rule_id
+- **THEN** it queries the latest `last_alert_ts` from `alert_history` for that rule_id
 
 ### Requirement: Configurable retention purge
 The system SHALL provide a purge function that deletes rows older than a configurable number of days (default 30) from all history tables.
@@ -60,3 +68,23 @@ The system SHALL provide a purge function that deletes rows older than a configu
 #### Scenario: Purge respects per-table retention
 - **WHEN** different retention periods are configured per table
 - **THEN** each table is purged according to its own retention setting
+
+### Requirement: History command handler integration
+
+The system SHALL provide a `/history [n]` command handler that calls `History.get_history()` and formats the response for Telegram.
+
+#### Scenario: Handler returns formatted history
+- **WHEN** authorized user sends `/history 5`
+- **THEN** handler calls `History.get_history(limit=5)` and formats entries with timestamp, user_id, alias, and exit_code
+
+#### Scenario: Handler handles empty history
+- **WHEN** authorized user sends `/history` with no entries in database
+- **THEN** handler returns "No history available" message
+
+### Requirement: Alert command handler integration with storage
+
+The system SHALL provide an `/alerts` command handler that queries alert rules and their cooldown status from `alert_history`.
+
+#### Scenario: Handler lists rule statuses
+- **WHEN** authorized user sends `/alerts`
+- **THEN** handler loads rules from config, queries `alert_history` for last alert timestamps, determines status (OK/COOLDOWN), and formats as Markdown table

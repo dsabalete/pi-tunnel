@@ -62,6 +62,15 @@ def test_migration_idempotent(temp_db):
     assert db.get_schema_version() == 4
 
 
+def test_wal_mode_enabled(temp_db):
+    """Test that WAL mode is enabled on database connections."""
+    db, _ = temp_db
+    with db.get_connection() as conn:
+        cursor = conn.execute("PRAGMA journal_mode")
+        result = cursor.fetchone()
+        assert result[0].lower() == "wal"
+
+
 def test_history_log_command(temp_db):
     """Test logging and retrieving command history."""
     _, history = temp_db
@@ -196,3 +205,29 @@ def test_get_readings_with_since_ts(temp_db):
     # Get readings since ts1
     readings = temp_db[1].get_readings("sensor1", since_ts=ts1 + 1)
     assert len(readings) == 2
+
+
+def test_alert_cooldown_logic(temp_db):
+    """Test alert cooldown logic using get_last_alert_ts."""
+    _, history = temp_db
+
+    now = time.time()
+    # Log an alert 1 hour ago
+    history.log_alert(ts=now - 3600, rule_id="high-temp", sensor_id="temp-salon", value=28.0)
+    # Log another alert 10 minutes ago
+    history.log_alert(ts=now - 600, rule_id="high-temp", sensor_id="temp-salon", value=29.0)
+
+    # Get last alert timestamp
+    last_ts = history.get_last_alert_ts("high-temp")
+    assert last_ts is not None
+    assert abs(last_ts - (now - 600)) < 10  # Should be the most recent (10 min ago)
+
+    # Check cooldown: 30 min cooldown
+    cooldown_seconds = 30 * 60
+    elapsed = now - last_ts
+    in_cooldown = elapsed < cooldown_seconds
+    assert in_cooldown is True  # 10 min < 30 min
+
+    # Check with no cooldown (old alert)
+    last_ts_old = history.get_last_alert_ts("non-existent")
+    assert last_ts_old is None

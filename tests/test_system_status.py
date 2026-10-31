@@ -1,11 +1,12 @@
 """Tests for system status module."""
 
 import time
+import socket
 from unittest.mock import patch, MagicMock
 
 import pytest
 
-from pitunnel.system.status import get_system_status, _get_public_ip_cached, _public_ip_cache
+from pitunnel.system.status import get_system_status, _get_public_ip_cached, _public_ip_cache, _fetch_public_ip
 
 
 @pytest.fixture(autouse=True)
@@ -65,3 +66,48 @@ def test_public_ip_cache():
         assert ip1 == "5.6.7.8"
         assert ip2 == "5.6.7.8"
         assert call_count["n"] == 1
+
+
+def test_public_ip_timeout_fallback():
+    """_fetch_public_ip returns 'unknown' on timeout."""
+    with patch("pitunnel.system.status.urllib.request.urlopen") as mock_urlopen:
+        mock_urlopen.side_effect = socket.timeout("Request timed out")
+        result = _fetch_public_ip()
+        assert result == "unknown"
+
+
+def test_public_ip_generic_error_fallback():
+    """_fetch_public_ip returns 'unknown' on any error."""
+    with patch("pitunnel.system.status.urllib.request.urlopen") as mock_urlopen:
+        mock_urlopen.side_effect = Exception("Network error")
+        result = _fetch_public_ip()
+        assert result == "unknown"
+
+
+def test_get_system_status_cache_expiry():
+    """Public IP cache expires after 10 minutes."""
+    call_count = {"n": 0}
+
+    def fake_fetch():
+        call_count["n"] += 1
+        return f"1.2.3.{call_count['n']}"
+
+    with patch("pitunnel.system.status._fetch_public_ip", side_effect=fake_fetch):
+        # First call
+        ip1 = _get_public_ip_cached()
+        assert ip1 == "1.2.3.1"
+        assert call_count["n"] == 1
+
+        # Second call within cache TTL
+        ip2 = _get_public_ip_cached()
+        assert ip2 == "1.2.3.1"
+        assert call_count["n"] == 1
+
+        # Simulate cache expiry by setting old timestamp
+        import time
+        _public_ip_cache["ts"] = time.time() - 700  # 11+ minutes ago
+
+        # Third call should fetch new IP
+        ip3 = _get_public_ip_cached()
+        assert ip3 == "1.2.3.2"
+        assert call_count["n"] == 2
