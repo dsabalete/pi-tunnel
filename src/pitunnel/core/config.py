@@ -74,12 +74,29 @@ class LimitsConfig:
 
 
 @dataclass
+class AlertRuleConfig:
+    """Single alert rule configuration."""
+    rule_id: str
+    sensor_id: str
+    when: str
+    cooldown_min: int = 30
+    enabled: bool = True
+
+
+@dataclass
+class AlertsConfig:
+    """Alerts configuration."""
+    rules: list[AlertRuleConfig] = field(default_factory=list)
+
+
+@dataclass
 class Config:
     """Main configuration container."""
     telegram: TelegramConfig = field(default_factory=TelegramConfig)
     commands: CommandsConfig = field(default_factory=CommandsConfig)
     sensors: SensorsConfig = field(default_factory=SensorsConfig)
     actuators: ActuatorsConfig = field(default_factory=ActuatorsConfig)
+    alerts: AlertsConfig = field(default_factory=AlertsConfig)
     limits: LimitsConfig = field(default_factory=LimitsConfig)
     storage: dict[str, Any] = field(default_factory=dict)
 
@@ -175,6 +192,20 @@ class Config:
                     confirm=a.get("confirm", False),
                 ))
             config.actuators = ActuatorsConfig(actuators=actuators)
+
+        # Alerts
+        if "alerts" in raw:
+            alerts_raw = raw["alerts"]
+            rules = []
+            for r in alerts_raw.get("rules", []):
+                rules.append(AlertRuleConfig(
+                    rule_id=r["rule_id"],
+                    sensor_id=r["sensor_id"],
+                    when=r["when"],
+                    cooldown_min=r.get("cooldown_min", 30),
+                    enabled=r.get("enabled", True),
+                ))
+            config.alerts = AlertsConfig(rules=rules)
 
         # Limits
         if "limits" in raw:
