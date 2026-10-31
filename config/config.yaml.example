@@ -23,6 +23,14 @@ actuators:
     pin: 17
     confirm: false
 
+alerts:
+  rules:
+    - rule_id: temp-high
+      sensor_id: temp-salon
+      when: "> 27.5"
+      cooldown_min: 30
+      enabled: true
+
 limits:
   command_timeout_s: 10
   max_output_chars: 4000

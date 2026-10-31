@@ -55,6 +55,13 @@ python -m pitunnel.main
   Public IP: 37.222.144.110
   ```
 
+- `/alerts` – List all configured alert rules with threshold, cooldown, and current status (OK / COOLDOWN).
+  Example output:
+  ```
+  🚨 *Active alert rules:*
+  • temp-high: temp-salon > 27.5 (cooldown: 30 min) - OK
+  ```
+
 ### Docker
 
 Build the image:

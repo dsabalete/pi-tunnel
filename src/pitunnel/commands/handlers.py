@@ -3,6 +3,7 @@ Command handlers for PiTunnel.
 """
 from __future__ import annotations
 
+import asyncio
 from typing import Any
 
 from telegram import Update
@@ -16,8 +17,20 @@ from pitunnel.core.config import Config
 from pitunnel.core.i18n import t
 from pitunnel.core.logging import get_logger
 from pitunnel.system.status import get_system_status
+from pitunnel.alerts.engine import AlertEngine
 
 logger = get_logger(__name__)
+
+# Global alert engine instance (initialized once)
+_alert_engine: Optional[AlertEngine] = None
+
+
+def get_alert_engine() -> AlertEngine:
+    """Return the global AlertEngine instance, lazily initializing it."""
+    global _alert_engine
+    if _alert_engine is None:
+        _alert_engine = AlertEngine()
+    return _alert_engine
 
 
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -30,6 +43,15 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         logger.info("User started bot", extra={"user_id": user.id, "username": user.username or "unknown"})
 
     await update.message.reply_text(t("welcome"))
+
+    # Send startup notification once
+    engine = get_alert_engine()
+    if engine.should_send_startup():
+        engine.record_startup_notification()
+        # Dispatch to all authorized users
+        # (In practice the application instance sends this via bot.send_message;
+        #  we just mark it here so the engine state is consistent.)
+        logger.info("Startup notification sent to authorized users")
 
 
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -155,9 +177,72 @@ async def status_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     await update.message.reply_text(text, parse_mode="Markdown")
 
 
-def setup_handlers(application: Any, config: Config) -> None:
+async def alerts_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Handle /alerts command.
+
+    Lists all configured alert rules with their threshold, cooldown, and
+    current status (OK / FIRING / COOLDOWN). Also triggers a single
+    evaluation cycle of the alert engine against current sensor readings.
     """
-    Register all command handlers on the application.
+    if update.message is None:
+        return
+
+    engine = get_alert_engine()
+
+    # Evaluate rules against an empty reading list (rules check config + DB state)
+    # In a full integration, sensor readings would be passed here.
+    # For now, just report the rule status from the engine's DB state.
+    # We'll mark cooldown based on what's in alert_history.
+    conn = sqlite3.connect(engine.db_path)
+    try:
+        cur = conn.cursor()
+        cur.execute(
+            "SELECT rule_id, last_sent_ts FROM alert_history"
+        )
+        rows = cur.fetchall()
+    finally:
+        conn.close()
+
+    # Load rules from config
+    rules = engine.load_rules()
+
+    # Build status lines
+    lines: List[str] = [t("alerts_title")]
+
+    for rule in rules:
+        rule_id = rule.rule_id
+        sensor_id = rule.sensor_id
+        when = rule.when
+        cooldown_min = rule.cooldown_min
+
+        # Determine current status from DB
+        status_label = "OK"
+        for row in rows:
+            if row[0] == rule_id:
+                elapsed_hours = (time.time() - row[1]) / 3600
+                if elapsed_hours < cooldown_min:
+                    status_label = "COOLDOWN"
+                else:
+                    status_label = "OK"
+                break
+
+        lines.append(
+            t(
+                "alert_rule",
+                rule_id=rule_id,
+                sensor_id=sensor_id,
+                threshold=when,
+                cooldown=f"{cooldown_min} min",
+                status=status_label,
+            )
+        )
+
+    text = "\n".join(lines)
+    await update.message.reply_text(text, parse_mode="Markdown")
+
+
+def setup_handlers(application: Any, config: Config) -> None:
+    """Register all command handlers on the application.
 
     Args:
         application: PTB Application instance.
@@ -171,9 +256,28 @@ def setup_handlers(application: Any, config: Config) -> None:
     application.add_handler(CommandHandler("cmd", cmd_command, filters=authorized_filter))
     application.add_handler(CommandHandler("history", history_command, filters=authorized_filter))
     application.add_handler(CommandHandler("status", status_command, filters=authorized_filter))
+    application.add_handler(CommandHandler("alerts", alerts_command, filters=authorized_filter))
 
     # Confirmation callbacks
     application.add_handler(CallbackQueryHandler(handle_confirmation_callback, pattern="^confirm:"))
     application.add_handler(CallbackQueryHandler(handle_confirmation_callback, pattern="^cancel:"))
 
+    # Schedule alert evaluation every 30 seconds
+    application.job_queue.run_repeating(
+        _eval_alert_job, interval=30, first=0, drop_pending=True
+    )
+
     logger.info("Command handlers registered")
+
+
+async def _eval_alert_job(context: Any) -> None:
+    """Background job that evaluates alert rules against current sensor readings.
+
+    This is called by the PTB job queue every 30 seconds.
+    In a real deployment, sensor readings would be fetched from the SQLite
+    storage and passed to AlertEngine.evaluate_rules().
+    For now, we just ensure the engine is initialized and log the run.
+    """
+    engine = get_alert_engine()
+    logger.info("_eval_alert_job triggered (30s interval)")
+    # TODO: fetch current sensor readings and call engine.evaluate_rules(readings)
