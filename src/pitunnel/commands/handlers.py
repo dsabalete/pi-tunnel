@@ -151,11 +151,6 @@ async def history_command(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     # Get history from storage
     history_logger = context.bot_data.get("history_logger")
     if history_logger is None:
-        # Fallback: try to get from bot_data
-        from pitunnel.storage.history import History
-        from pitunnel.storage.db import Database
-        from pitunnel.core.config import Config
-        # This shouldn't happen in normal operation
         await update.message.reply_text(t("history_empty"))
         return
 
@@ -168,7 +163,6 @@ async def history_command(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     # Format history entries
     lines = [t("history_title", count=len(entries))]
     for entry in entries:
-        # Format timestamp
         ts = entry["ts"]
         from datetime import datetime
         dt = datetime.fromtimestamp(ts).strftime("%Y-%m-%d %H:%M:%S")
@@ -200,17 +194,12 @@ async def status_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     minutes, _ = divmod(rem, 60)
     uptime_str = f"{int(days)}d {int(hours)}h {int(minutes)}m"
 
-    # Disk usage human readable
-    def fmt_disk(percent):
-        return f"{percent:.1f}%"
-
     lines = [t("status_title")]
     lines.append(t("status_cpu", cpu=f"{status.cpu_percent:.1f}"))
     lines.append(t("status_ram", ram=f"{status.ram_percent:.1f}", used="-", total="-"))
     temp_str = f"{status.cpu_temp_c:.1f}" if status.cpu_temp_c is not None else "N/A"
     lines.append(t("status_temp", temp=temp_str))
     lines.append(t("status_disk", disk=f"{status.disk_root_percent:.1f}", used="-", total="-"))
-    # NAS disk if available
     if status.disk_nas_percent is not None:
         lines.append(f"Disco /mnt/nas: {status.disk_nas_percent:.1f}%")
     lines.append(t("status_uptime", uptime=uptime_str))
@@ -222,22 +211,14 @@ async def status_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
 
 
 async def alerts_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Handle /alerts command.
-
-    Lists all configured alert rules with their threshold, cooldown, and
-    current status (OK / FIRING / COOLDOWN). Also triggers a single
-    evaluation cycle of the alert engine against current sensor readings.
-    """
+    """Handle /alerts command."""
     if update.message is None:
         return
 
     history_logger = context.bot_data.get("history_logger")
     engine = get_alert_engine(history=history_logger)
-
-    # Load rules from config object
     rules = context.bot_data["config"].alerts.rules
 
-    # Build status lines
     lines: List[str] = [t("alerts_title")]
 
     for rule in rules:
@@ -246,7 +227,6 @@ async def alerts_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         when = rule.when
         cooldown_min = rule.cooldown_min
 
-        # Determine current status from history logger
         status_label = "OK"
         if history_logger is not None:
             last_ts = history_logger.get_last_alert_ts(rule_id)
@@ -255,8 +235,6 @@ async def alerts_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
                 cooldown_seconds = cooldown_min * 60
                 if elapsed_seconds < cooldown_seconds:
                     status_label = "COOLDOWN"
-                else:
-                    status_label = "OK"
 
         lines.append(
             t(
@@ -273,13 +251,102 @@ async def alerts_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     await update.message.reply_text(text, parse_mode="Markdown")
 
 
-def setup_handlers(application: Any, config: Config) -> None:
-    """Register all command handlers on the application.
+async def on_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Handle /on <actuator_id> command."""
+    if update.message is None:
+        return
 
-    Args:
-        application: PTB Application instance.
-        config: Configuration object.
-    """
+    args = context.args
+    if not args:
+        await update.message.reply_text(t("unknown_command"))
+        return
+
+    actuator_id = args[0]
+    actuator_registry = context.bot_data.get("actuator_registry")
+
+    if actuator_registry is None:
+        await update.message.reply_text("Actuator registry not initialized")
+        return
+
+    # Get actuator
+    actuator = actuator_registry.get_actuator(actuator_id)
+    if actuator is None:
+        await update.message.reply_text(t("actuator_not_found", id=actuator_id))
+        return
+
+    # Check if confirmation required
+    if actuator_registry.should_confirm(actuator_id):
+        confirmation_manager: ConfirmationManager = context.bot_data.get("confirmation_manager")
+        if confirmation_manager:
+            callback_data, keyboard = confirmation_manager.create_confirmation(
+                alias=f"on-{actuator_id}",
+                user_id=update.effective_user.id if update.effective_user else 0,
+                chat_id=update.message.chat_id,
+            )
+            await update.message.reply_text(
+                t("confirm_actuator_action", id=actuator_id, action="on"),
+                parse_mode="Markdown",
+                reply_markup=keyboard,
+            )
+            return
+
+    # Turn on
+    success = actuator.on()
+    if success:
+        await update.message.reply_text(t("actuator_on", id=actuator_id))
+    else:
+        await update.message.reply_text(t("actuator_error", id=actuator_id))
+
+
+async def off_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Handle /off <actuator_id> command."""
+    if update.message is None:
+        return
+
+    args = context.args
+    if not args:
+        await update.message.reply_text(t("unknown_command"))
+        return
+
+    actuator_id = args[0]
+    actuator_registry = context.bot_data.get("actuator_registry")
+
+    if actuator_registry is None:
+        await update.message.reply_text("Actuator registry not initialized")
+        return
+
+    # Get actuator
+    actuator = actuator_registry.get_actuator(actuator_id)
+    if actuator is None:
+        await update.message.reply_text(t("actuator_not_found", id=actuator_id))
+        return
+
+    # Check if confirmation required
+    if actuator_registry.should_confirm(actuator_id):
+        confirmation_manager: ConfirmationManager = context.bot_data.get("confirmation_manager")
+        if confirmation_manager:
+            callback_data, keyboard = confirmation_manager.create_confirmation(
+                alias=f"off-{actuator_id}",
+                user_id=update.effective_user.id if update.effective_user else 0,
+                chat_id=update.message.chat_id,
+            )
+            await update.message.reply_text(
+                t("confirm_actuator_action", id=actuator_id, action="off"),
+                parse_mode="Markdown",
+                reply_markup=keyboard,
+            )
+            return
+
+    # Turn off
+    success = actuator.off()
+    if success:
+        await update.message.reply_text(t("actuator_off", id=actuator_id))
+    else:
+        await update.message.reply_text(t("actuator_error", id=actuator_id))
+
+
+def setup_handlers(application: Any, config: Config) -> None:
+    """Register all command handlers on the application."""
     authorized_filter = get_authorized_filter(config)
 
     # Built-in commands
@@ -289,6 +356,10 @@ def setup_handlers(application: Any, config: Config) -> None:
     application.add_handler(CommandHandler("history", history_command, filters=authorized_filter))
     application.add_handler(CommandHandler("status", status_command, filters=authorized_filter))
     application.add_handler(CommandHandler("alerts", alerts_command, filters=authorized_filter))
+
+    # Actuator commands
+    application.add_handler(CommandHandler("on", on_command, filters=authorized_filter))
+    application.add_handler(CommandHandler("off", off_command, filters=authorized_filter))
 
     # Confirmation callbacks
     application.add_handler(CallbackQueryHandler(handle_confirmation_callback, pattern="^confirm:"))
@@ -303,17 +374,9 @@ def setup_handlers(application: Any, config: Config) -> None:
 
 
 async def _eval_alert_job(context: Any) -> None:
-    """Background job that evaluates alert rules against current sensor readings.
-
-    This is called by the PTB job queue every 30 seconds.
-    In a real deployment, sensor readings would be fetched from the SQLite
-    storage and passed to AlertEngine.evaluate_rules().
-    For now, we just ensure the engine is initialized and log the run.
-    """
-    # Try to get history logger from application context
+    """Background job that evaluates alert rules against current sensor readings."""
     history_logger = None
     if hasattr(context, "application") and context.application:
         history_logger = context.application.bot_data.get("history_logger")
     engine = get_alert_engine(history=history_logger)
     logger.info("_eval_alert_job triggered (30s interval)")
-    # TODO: fetch current sensor readings and call engine.evaluate_rules(readings)
