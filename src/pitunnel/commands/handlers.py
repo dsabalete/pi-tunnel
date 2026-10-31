@@ -15,6 +15,7 @@ from pitunnel.core.auth import get_authorized_filter
 from pitunnel.core.config import Config
 from pitunnel.core.i18n import t
 from pitunnel.core.logging import get_logger
+from pitunnel.system.status import get_system_status
 
 logger = get_logger(__name__)
 
@@ -114,6 +115,46 @@ async def history_command(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     await update.message.reply_text(t("history_empty"))
 
 
+async def status_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Handle /status command."""
+    if update.message is None:
+        return
+
+    try:
+        status = get_system_status()
+    except Exception as e:
+        logger.error("Failed to get system status", exc_info=e)
+        await update.message.reply_text(t("unknown_command"))
+        return
+
+    # Format uptime
+    uptime_seconds = status.uptime_seconds
+    days, rem = divmod(uptime_seconds, 86400)
+    hours, rem = divmod(rem, 3600)
+    minutes, _ = divmod(rem, 60)
+    uptime_str = f"{int(days)}d {int(hours)}h {int(minutes)}m"
+
+    # Disk usage human readable
+    def fmt_disk(percent):
+        return f"{percent:.1f}%"
+
+    lines = [t("status_title")]
+    lines.append(t("status_cpu", cpu=f"{status.cpu_percent:.1f}"))
+    lines.append(t("status_ram", ram=f"{status.ram_percent:.1f}", used="-", total="-"))
+    temp_str = f"{status.cpu_temp_c:.1f}" if status.cpu_temp_c is not None else "N/A"
+    lines.append(t("status_temp", temp=temp_str))
+    lines.append(t("status_disk", disk=f"{status.disk_root_percent:.1f}", used="-", total="-"))
+    # NAS disk if available
+    if status.disk_nas_percent is not None:
+        lines.append(f"Disco /mnt/nas: {status.disk_nas_percent:.1f}%")
+    lines.append(t("status_uptime", uptime=uptime_str))
+    lines.append(t("status_local_ip", ip=status.local_ip))
+    lines.append(t("status_public_ip", ip=status.public_ip))
+
+    text = "\n".join(lines)
+    await update.message.reply_text(text, parse_mode="Markdown")
+
+
 def setup_handlers(application: Any, config: Config) -> None:
     """
     Register all command handlers on the application.
@@ -129,6 +170,7 @@ def setup_handlers(application: Any, config: Config) -> None:
     application.add_handler(CommandHandler("help", help_command, filters=authorized_filter))
     application.add_handler(CommandHandler("cmd", cmd_command, filters=authorized_filter))
     application.add_handler(CommandHandler("history", history_command, filters=authorized_filter))
+    application.add_handler(CommandHandler("status", status_command, filters=authorized_filter))
 
     # Confirmation callbacks
     application.add_handler(CallbackQueryHandler(handle_confirmation_callback, pattern="^confirm:"))

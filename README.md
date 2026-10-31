@@ -40,6 +40,21 @@ Run the bot with:
 python -m pitunnel.main
 ```
 
+### Commands
+
+- `/status` – Show system health: CPU, RAM, temperature, disk usage, uptime, local and public IP.
+  Example output:
+  ```
+  📊 *System Status*
+  CPU: 12.5%
+  RAM: 45.0%
+  CPU Temp: 55.0°C
+  Disk /: 72.9%
+  Uptime: 0d 1h 23m
+  Local IP: 192.168.0.16
+  Public IP: 37.222.144.110
+  ```
+
 ### Docker
 
 Build the image:
