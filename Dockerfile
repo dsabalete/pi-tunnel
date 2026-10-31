@@ -23,11 +23,14 @@ RUN pip install --upgrade pip && \
 COPY src/ ./src/
 COPY config/ ./config/
 
+# Create data directory for SQLite persistence
+RUN mkdir -p /app/data
+
 # Create non-root user
 RUN useradd -m -u 1000 appuser && chown -R appuser:appuser /app
 USER appuser
 
 # Default config directory will be overridden by volume mount
-VOLUME ["/app/config"]
+VOLUME ["/app/config", "/app/data"]
 
 ENTRYPOINT ["python", "-m", "pitunnel.main"]

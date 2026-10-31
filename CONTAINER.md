@@ -17,13 +17,19 @@ The Dockerfile uses `python:3.11-slim-bookworm`, installs dependencies from `req
 
 ## Running
 
+Create data directory for SQLite persistence (required for alert cooldowns):
+```bash
+mkdir -p data
+```
+
 ```bash
 docker compose up -d
 ```
 
-Config is mounted read-only:
+Volumes mounted:
 
-- `./config:/app/config:ro`
+- `./config:/app/config:ro` — bot configuration (read-only)
+- `./data:/app/data` — SQLite database for alert cooldown persistence
 - Environment from `./config/pitunnel.env` via `env_file`
 
 Do not bake secrets into the image. `.dockerignore` excludes `config/*.env`.
@@ -50,6 +56,16 @@ Stop compose and revert to venv:
 docker compose down
 python -m pitunnel.main
 ```
+
+## Database Persistence
+
+The `./data:/app/data` volume mount provides persistent storage for the SQLite database (`db.sqlite3`). This database stores:
+
+- Alert cooldown timestamps (per-rule `last_sent_ts`)
+- Sensor readings (if persistence enabled)
+- Command history (if storage layer enabled)
+
+The database is created automatically on first run. Cooldown state persists across container restarts.
 
 ## Notes
 

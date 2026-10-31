@@ -13,6 +13,7 @@ services:
       - PYTHONUNBUFFERED=1
     volumes:
       - ./config:/app/config:ro
+      - ./data:/app/data
     env_file:
       - ./config/pitunnel.env
     # Uncomment for Raspberry Pi GPIO / I2C access

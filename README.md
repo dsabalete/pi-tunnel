@@ -69,12 +69,22 @@ Build the image:
 docker buildx build --platform linux/amd64,linux/arm64 -t pitunnel:latest .
 ```
 
+Create data directory for SQLite persistence (required for alert cooldowns):
+```bash
+mkdir -p data
+```
+
 Run with Compose:
 ```bash
 docker compose up -d
 ```
 
-Configuration is provided via volume mount `./config:/app/config:ro` and environment file `./config/pitunnel.env`. Ensure `config/config.yaml` and `config/pitunnel.env` exist on the host before starting.
+Configuration is provided via volume mounts:
+- `./config:/app/config:ro` — bot configuration (read-only)
+- `./data:/app/data` — SQLite database for alert cooldown persistence
+- Environment file: `./config/pitunnel.env`
+
+Ensure `config/config.yaml`, `config/pitunnel.env`, and `data/` directory exist on the host before starting.
 
 For Raspberry Pi GPIO / I2C access, run with privileged mode or device mounts. Example override in `docker-compose.override.yml`:
 ```yaml
