@@ -1,0 +1,33 @@
+# syntax=docker/dockerfile:1
+FROM python:3.11-slim-bookworm
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PIP_NO_CACHE_DIR=1 \
+    PYTHONPATH=/app/src
+
+WORKDIR /app
+
+# System deps for gpiozero/smbus2
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    libgpiod2 \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Python dependencies
+COPY pyproject.toml requirements.txt ./
+RUN pip install --upgrade pip && \
+    pip install -r requirements.txt
+
+# Copy source
+COPY src/ ./src/
+COPY config/ ./config/
+
+# Create non-root user
+RUN useradd -m -u 1000 appuser && chown -R appuser:appuser /app
+USER appuser
+
+# Default config directory will be overridden by volume mount
+VOLUME ["/app/config"]
+
+ENTRYPOINT ["python", "-m", "pitunnel.main"]

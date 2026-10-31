@@ -1,0 +1,37 @@
+# Python virtual env
+.venv
+venv
+env
+
+# Tests and caches
+tests
+.pytest_cache
+.mypy_cache
+.ruff_cache
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.Python
+
+# Git
+.git
+.gitignore
+
+# Config secrets
+config/*.env
+config/pitunnel.env
+config/pitunnel.env.example
+
+# OpenSpec and docs artifacts
+openspec
+specs.md
+Todo.md
+
+# IDE
+.vscode
+.idea
+
+# OS
+.DS_Store
+Thumbs.db

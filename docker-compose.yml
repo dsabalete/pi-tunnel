@@ -1,0 +1,22 @@
+services:
+  pitunnel:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      platforms:
+        - linux/amd64
+        - linux/arm64
+    image: pitunnel:latest
+    container_name: pitunnel
+    restart: unless-stopped
+    environment:
+      - PYTHONUNBUFFERED=1
+    volumes:
+      - ./config:/app/config:ro
+    env_file:
+      - ./config/pitunnel.env
+    # Uncomment for Raspberry Pi GPIO / I2C access
+    # privileged: true
+    # devices:
+    #   - /dev/gpiomem:/dev/gpiomem
+    #   - /dev/i2c-1:/dev/i2c-1
