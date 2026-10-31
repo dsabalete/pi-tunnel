@@ -81,6 +81,7 @@ class Config:
     sensors: SensorsConfig = field(default_factory=SensorsConfig)
     actuators: ActuatorsConfig = field(default_factory=ActuatorsConfig)
     limits: LimitsConfig = field(default_factory=LimitsConfig)
+    storage: dict[str, Any] = field(default_factory=dict)
 
     @classmethod
     def load(cls, config_path: str | Path | None = None) -> Config:
@@ -183,6 +184,8 @@ class Config:
                 max_output_chars=lim.get("max_output_chars", 4000),
                 history_retention_days=lim.get("history_retention_days", 30),
             )
+
+        config.storage = raw.get("storage", {"database_path": "./db.sqlite3"})
 
         return config
 

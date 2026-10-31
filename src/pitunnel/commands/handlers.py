@@ -367,7 +367,7 @@ def setup_handlers(application: Any, config: Config) -> None:
 
     # Schedule alert evaluation every 30 seconds
     application.job_queue.run_repeating(
-        _eval_alert_job, interval=30, first=0, drop_pending=True
+        _eval_alert_job, interval=30, first=0
     )
 
     logger.info("Command handlers registered")
