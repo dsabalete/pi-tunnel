@@ -28,12 +28,24 @@ def test_get_system_status_mocked():
          patch("pitunnel.system.status.time.time", return_value=2000), \
          patch("pitunnel.system.status._get_cpu_temp", return_value=55.0), \
          patch("pitunnel.system.status._fetch_public_ip", return_value="1.2.3.4"):
+        # Mock virtual_memory with all attributes
         vm.return_value.percent = 45.0
-        # disk_usage called twice, return different mocks
-        du.side_effect = [
-            MagicMock(percent=60.0),
-            MagicMock(percent=30.0),
-        ]
+        vm.return_value.used = 4 * 1024**3  # 4 GB
+        vm.return_value.total = 8 * 1024**3  # 8 GB
+        
+        # disk_usage called twice, return different mocks with used/total
+        disk_root_mock = MagicMock()
+        disk_root_mock.percent = 60.0
+        disk_root_mock.used = 50 * 1024**3  # 50 GB
+        disk_root_mock.total = 100 * 1024**3  # 100 GB
+        
+        disk_nas_mock = MagicMock()
+        disk_nas_mock.percent = 30.0
+        disk_nas_mock.used = 60 * 1024**3  # 60 GB
+        disk_nas_mock.total = 200 * 1024**3  # 200 GB
+        
+        du.side_effect = [disk_root_mock, disk_nas_mock]
+        
         # net_if_addrs returns one interface with IPv4
         mock_addr = MagicMock()
         mock_addr.family = 2  # AF_INET
@@ -44,9 +56,15 @@ def test_get_system_status_mocked():
 
     assert status.cpu_percent == 12.5
     assert status.ram_percent == 45.0
+    assert status.ram_used_gb == 4.0
+    assert status.ram_total_gb == 8.0
     assert status.cpu_temp_c == 55.0
     assert status.disk_root_percent == 60.0
+    assert status.disk_root_used_gb == 50.0
+    assert status.disk_root_total_gb == 100.0
     assert status.disk_nas_percent == 30.0
+    assert status.disk_nas_used_gb == 60.0
+    assert status.disk_nas_total_gb == 200.0
     assert status.uptime_seconds == 1000
     assert status.local_ip == "192.168.1.10"
     assert status.public_ip == "1.2.3.4"

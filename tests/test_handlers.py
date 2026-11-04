@@ -106,9 +106,15 @@ class TestStatusCommand:
             mock_get_status.return_value = SystemStatus(
                 cpu_percent=25.0,
                 ram_percent=50.0,
+                ram_used_gb=4.0,
+                ram_total_gb=8.0,
                 cpu_temp_c=45.5,
                 disk_root_percent=70.0,
+                disk_root_used_gb=50.0,
+                disk_root_total_gb=100.0,
                 disk_nas_percent=None,
+                disk_nas_used_gb=None,
+                disk_nas_total_gb=None,
                 uptime_seconds=86400 + 3600,  # 1d 1h
                 local_ip="192.168.1.100",
                 public_ip="1.2.3.4",
@@ -140,9 +146,15 @@ class TestStatusCommand:
             mock_get_status.return_value = SystemStatus(
                 cpu_percent=30.0,
                 ram_percent=60.0,
+                ram_used_gb=6.0,
+                ram_total_gb=10.0,
                 cpu_temp_c=50.0,
                 disk_root_percent=80.0,
+                disk_root_used_gb=80.0,
+                disk_root_total_gb=100.0,
                 disk_nas_percent=45.0,
+                disk_nas_used_gb=90.0,
+                disk_nas_total_gb=200.0,
                 uptime_seconds=172800,  # 2d
                 local_ip="10.0.0.1",
                 public_ip="5.6.7.8",
@@ -154,9 +166,11 @@ class TestStatusCommand:
             call_args = mock_update.message.reply_text.call_args
             text = call_args[0][0]
 
-            # Verify NAS disk is shown
+            # Verify NAS disk is shown with GB values
             assert "Disco /mnt/nas" in text
             assert "45.0%" in text
+            assert "90.0" in text or "90.1" in text  # used GB
+            assert "200.0" in text or "200.1" in text  # total GB
 
 
 class TestHistoryCommand:

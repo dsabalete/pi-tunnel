@@ -196,12 +196,12 @@ async def status_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
 
     lines = [t("status_title")]
     lines.append(t("status_cpu", cpu=f"{status.cpu_percent:.1f}"))
-    lines.append(t("status_ram", ram=f"{status.ram_percent:.1f}", used="-", total="-"))
+    lines.append(t("status_ram", ram=f"{status.ram_percent:.1f}", used=f"{status.ram_used_gb:.1f}", total=f"{status.ram_total_gb:.1f}"))
     temp_str = f"{status.cpu_temp_c:.1f}" if status.cpu_temp_c is not None else "N/A"
     lines.append(t("status_temp", temp=temp_str))
-    lines.append(t("status_disk", disk=f"{status.disk_root_percent:.1f}", used="-", total="-"))
+    lines.append(t("status_disk", disk=f"{status.disk_root_percent:.1f}", used=f"{status.disk_root_used_gb:.1f}", total=f"{status.disk_root_total_gb:.1f}"))
     if status.disk_nas_percent is not None:
-        lines.append(t("status_disk_nas", disk=f"{status.disk_nas_percent:.1f}", used="-", total="-"))
+        lines.append(t("status_disk_nas", disk=f"{status.disk_nas_percent:.1f}", used=f"{status.disk_nas_used_gb:.1f}", total=f"{status.disk_nas_total_gb:.1f}"))
     lines.append(t("status_uptime", uptime=uptime_str))
     lines.append(t("status_local_ip", ip=status.local_ip))
     lines.append(t("status_public_ip", ip=status.public_ip))

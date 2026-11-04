@@ -16,9 +16,15 @@ import urllib.error
 class SystemStatus:
     cpu_percent: float
     ram_percent: float
+    ram_used_gb: float
+    ram_total_gb: float
     cpu_temp_c: Optional[float]
     disk_root_percent: float
+    disk_root_used_gb: float
+    disk_root_total_gb: float
     disk_nas_percent: Optional[float]
+    disk_nas_used_gb: Optional[float]
+    disk_nas_total_gb: Optional[float]
     uptime_seconds: int
     local_ip: str
     public_ip: str
@@ -79,22 +85,40 @@ def _get_public_ip_cached() -> str:
 
 def get_system_status() -> SystemStatus:
     cpu = psutil.cpu_percent(interval=0.2)
-    ram = psutil.virtual_memory().percent
-    disk_root = psutil.disk_usage("/").percent
+    ram = psutil.virtual_memory()
+    ram_percent = ram.percent
+    ram_used_gb = ram.used / (1024**3)
+    ram_total_gb = ram.total / (1024**3)
+    disk_root = psutil.disk_usage("/")
+    disk_root_percent = disk_root.percent
+    disk_root_used_gb = disk_root.used / (1024**3)
+    disk_root_total_gb = disk_root.total / (1024**3)
     try:
-        disk_nas = psutil.disk_usage("/mnt/nas").percent
+        disk_nas = psutil.disk_usage("/mnt/nas")
+        disk_nas_percent = disk_nas.percent
+        disk_nas_used_gb = disk_nas.used / (1024**3)
+        disk_nas_total_gb = disk_nas.total / (1024**3)
     except Exception:
         disk_nas = None
+        disk_nas_percent = None
+        disk_nas_used_gb = None
+        disk_nas_total_gb = None
     uptime = int(time.time() - psutil.boot_time())
     local_ip = _get_local_ip()
     cpu_temp = _get_cpu_temp()
     public_ip = _get_public_ip_cached()
     return SystemStatus(
         cpu_percent=cpu,
-        ram_percent=ram,
+        ram_percent=ram_percent,
+        ram_used_gb=ram_used_gb,
+        ram_total_gb=ram_total_gb,
         cpu_temp_c=cpu_temp,
-        disk_root_percent=disk_root,
-        disk_nas_percent=disk_nas,
+        disk_root_percent=disk_root_percent,
+        disk_root_used_gb=disk_root_used_gb,
+        disk_root_total_gb=disk_root_total_gb,
+        disk_nas_percent=disk_nas_percent,
+        disk_nas_used_gb=disk_nas_used_gb,
+        disk_nas_total_gb=disk_nas_total_gb,
         uptime_seconds=uptime,
         local_ip=local_ip,
         public_ip=public_ip,
