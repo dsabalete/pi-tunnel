@@ -127,9 +127,36 @@ class TestStatusCommand:
             assert "RAM: 50.0%" in text
             assert "Temp CPU: 45.5°C" in text
             assert "Disco /: 70.0%" in text
+            assert "Disco /mnt/nas" not in text  # disk_nas_percent is None, should not show
             assert "Uptime: 1d 1h 0m" in text
             assert "IP local: 192.168.1.100" in text
             assert "IP pública: 1.2.3.4" in text
+
+    @pytest.mark.asyncio
+    async def test_status_command_with_nas_disk(self, mock_update, mock_context, mock_history):
+        """Test /status command shows NAS disk when available."""
+        with patch("pitunnel.commands.handlers.get_system_status") as mock_get_status:
+            from pitunnel.system.status import SystemStatus
+            mock_get_status.return_value = SystemStatus(
+                cpu_percent=30.0,
+                ram_percent=60.0,
+                cpu_temp_c=50.0,
+                disk_root_percent=80.0,
+                disk_nas_percent=45.0,
+                uptime_seconds=172800,  # 2d
+                local_ip="10.0.0.1",
+                public_ip="5.6.7.8",
+            )
+
+            await status_command(mock_update, mock_context)
+
+            mock_update.message.reply_text.assert_called_once()
+            call_args = mock_update.message.reply_text.call_args
+            text = call_args[0][0]
+
+            # Verify NAS disk is shown
+            assert "Disco /mnt/nas" in text
+            assert "45.0%" in text
 
 
 class TestHistoryCommand:

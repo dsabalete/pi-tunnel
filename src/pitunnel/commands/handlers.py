@@ -201,7 +201,7 @@ async def status_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     lines.append(t("status_temp", temp=temp_str))
     lines.append(t("status_disk", disk=f"{status.disk_root_percent:.1f}", used="-", total="-"))
     if status.disk_nas_percent is not None:
-        lines.append(f"Disco /mnt/nas: {status.disk_nas_percent:.1f}%")
+        lines.append(t("status_disk_nas", disk=f"{status.disk_nas_percent:.1f}", used="-", total="-"))
     lines.append(t("status_uptime", uptime=uptime_str))
     lines.append(t("status_local_ip", ip=status.local_ip))
     lines.append(t("status_public_ip", ip=status.public_ip))
