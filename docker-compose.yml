@@ -1,12 +1,6 @@
 services:
   pitunnel:
-    build:
-      context: .
-      dockerfile: Dockerfile
-      platforms:
-        - linux/amd64
-        - linux/arm64
-    image: pitunnel:latest
+    image: dsabalete/pitunnel:latest
     container_name: pitunnel
     restart: unless-stopped
     environment:
