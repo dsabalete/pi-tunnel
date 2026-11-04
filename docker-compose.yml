@@ -8,9 +8,11 @@ services:
     volumes:
       - ./config:/app/config:ro
       - ./data:/app/data
+      # NAS disk mount for /status monitoring
+      - /mnt/nas:/mnt/nas
     env_file:
       - ./config/pitunnel.env
-    # Uncomment for Raspberry Pi GPIO / I2C access
+    # Raspberry Pi GPIO / I2C access (uncomment if needed)
     # privileged: true
     # devices:
     #   - /dev/gpiomem:/dev/gpiomem
