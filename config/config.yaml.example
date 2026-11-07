@@ -37,8 +37,17 @@ limits:
   history_retention_days: 30
 
 storage:
-  database_path: /app/data/db.sqlite3
   # Path to monitor for root disk usage.
-  # In Docker, the container's "/" is the overlay filesystem which may reside on a NAS mount.
-  # Set to "/host" (the bind-mounted host root from docker-compose.yml) to get actual SD card usage.
+  # ===========================================================================
+  # RASPBERRY PI DOCKER SETUP
+  # ===========================================================================
+  # When running in Docker on Raspberry Pi:
+  # - The container's "/" is the overlay filesystem (may be on NAS)
+  # - The actual SD card is the host's "/" filesystem
+  # - docker-compose.yml bind-mounts host "/" as "/host"
+  # - Set disk_root_path to "/host" to see real SD card usage
+  # ===========================================================================
   disk_root_path: "/host"
+  
+  # Database path (defaults to /app/data/db.sqlite3 in Docker)
+  # database_path: /app/data/db.sqlite3

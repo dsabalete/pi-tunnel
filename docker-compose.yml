@@ -10,15 +10,41 @@ services:
       - ./data:/app/data
       # NAS disk mount for /status monitoring
       - /mnt/nas:/mnt/nas
-      # Mount host root so /status can read SD card usage
+      # Mount host root filesystem so /status can read SD card usage.
+      # In Docker, "/" inside the container is the overlay filesystem (may be on NAS).
+      # Bind-mounting the host root as "/host" allows reading the actual SD card stats.
       - /:/host:ro
     env_file:
       - ./config/pitunnel.env
-    # Raspberry Pi GPIO / I2C access (uncomment if needed)
+    # Raspberry Pi GPIO / I2C access (uncomment if needed):
     # privileged: true
     # devices:
     #   - /dev/gpiomem:/dev/gpiomem
     #   - /dev/i2c-1:/dev/i2c-1
 
-# For correct SD card usage in /status, the disk_root_path config must point to /host
-# (the bind-mounted host root). This is set in config/config.yaml.
+# =============================================================================
+# RASPBERRY PI SETUP - SD CARD USAGE IN /status
+# =============================================================================
+# On Raspberry Pi, the /status command shows SD card usage via disk_root_path.
+#
+# Problem: In Docker, the container's "/" is the overlay filesystem (may be on NAS).
+#          The actual SD card is the host's "/" filesystem.
+#
+# Solution:
+# 1. Ensure docker-compose.yml has: - /:/host:ro
+# 2. Set disk_root_path: "/host" in config/config.yaml
+# 3. Restart the container after changes
+#
+# Alternative: If / and /mnt/nas show the same device, the overlay is on NAS.
+#              The warning in logs will tell you to override disk_root_path.
+
+# =============================================================================
+# QUICK START ON RASPBERRY PI
+# =============================================================================
+# 1. Clone this repo to your Pi
+# 2. Edit config/config.yaml:
+#    - Add your Telegram bot token to pitunnel.env
+#    - Ensure disk_root_path: "/host"
+# 3. Run: docker-compose up -d
+# 4. Check logs: docker logs -f pitunnel
+# 5. Send /status to your bot - should show real SD card usage
