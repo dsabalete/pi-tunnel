@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import shutil
 import socket
 import time
 from dataclasses import dataclass
@@ -38,7 +39,7 @@ def _get_cpu_temp() -> Optional[float]:
             return val / 1000.0
     except Exception:
         pass
-    # Fallback to psutil
+    # Fallback to sensors
     try:
         temps = psutil.sensors_temperatures()
         for name, entries in temps.items():
@@ -83,26 +84,59 @@ def _get_public_ip_cached() -> str:
     return ip
 
 
+def _get_disk_usage_shutil(path: str) -> tuple[int, int, int] | None:
+    """Get disk usage using shutil.disk_usage (Python standard library).
+    
+    This is the recommended approach as it's more reliable than psutil
+    in environments with mount namespace issues (Docker, chroot, etc.).
+    """
+    try:
+        usage = shutil.disk_usage(path)
+        return (usage.total, usage.used, usage.free)
+    except Exception:
+        return None
+
+
+def _get_disk_usage_values(path: str) -> tuple[float, float, float] | None:
+    """Get disk usage values (percent, used_gb, total_gb) for a path."""
+    result = _get_disk_usage_shutil(path)
+    
+    if result is None:
+        return None
+    
+    total, used, free = result
+    total_gb = total / (1024**3)
+    used_gb = used / (1024**3)
+    percent = (used / total) * 100 if total > 0 else 0
+    
+    return (percent, used_gb, total_gb)
+
+
 def get_system_status() -> SystemStatus:
     cpu = psutil.cpu_percent(interval=0.2)
     ram = psutil.virtual_memory()
     ram_percent = ram.percent
     ram_used_gb = ram.used / (1024**3)
     ram_total_gb = ram.total / (1024**3)
-    disk_root = psutil.disk_usage("/")
-    disk_root_percent = disk_root.percent
-    disk_root_used_gb = disk_root.used / (1024**3)
-    disk_root_total_gb = disk_root.total / (1024**3)
-    try:
-        disk_nas = psutil.disk_usage("/mnt/nas")
-        disk_nas_percent = disk_nas.percent
-        disk_nas_used_gb = disk_nas.used / (1024**3)
-        disk_nas_total_gb = disk_nas.total / (1024**3)
-    except Exception:
-        disk_nas = None
+    
+    # Get disk usage for root filesystem
+    disk_values = _get_disk_usage_values("/")
+    if disk_values is None:
+        disk_root_percent = 0.0
+        disk_root_used_gb = 0.0
+        disk_root_total_gb = 0.0
+    else:
+        disk_root_percent, disk_root_used_gb, disk_root_total_gb = disk_values
+    
+    # Get disk usage for NAS
+    disk_nas_values = _get_disk_usage_values("/mnt/nas")
+    if disk_nas_values is None:
         disk_nas_percent = None
         disk_nas_used_gb = None
         disk_nas_total_gb = None
+    else:
+        disk_nas_percent, disk_nas_used_gb, disk_nas_total_gb = disk_nas_values
+    
     uptime = int(time.time() - psutil.boot_time())
     local_ip = _get_local_ip()
     cpu_temp = _get_cpu_temp()
