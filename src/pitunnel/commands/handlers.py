@@ -181,7 +181,8 @@ async def status_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         return
 
     try:
-        status = get_system_status()
+        disk_root_path = context.bot_data["config"].storage.get("disk_root_path", "/")
+        status = get_system_status(disk_root_path=disk_root_path)
     except Exception as e:
         logger.error("Failed to get system status", exc_info=e)
         await update.message.reply_text(t("unknown_command"))

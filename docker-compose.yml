@@ -10,6 +10,8 @@ services:
       - ./data:/app/data
       # NAS disk mount for /status monitoring
       - /mnt/nas:/mnt/nas
+      # Mount host root so /status can read SD card usage
+      - /:/host:ro
     env_file:
       - ./config/pitunnel.env
     # Raspberry Pi GPIO / I2C access (uncomment if needed)

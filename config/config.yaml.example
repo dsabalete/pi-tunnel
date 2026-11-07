@@ -35,3 +35,11 @@ limits:
   command_timeout_s: 10
   max_output_chars: 4000
   history_retention_days: 30
+
+storage:
+  database_path: /app/data/db.sqlite3
+  # Path to monitor for root disk usage. In Docker, the container's "/" is the
+  # overlay filesystem which may reside on a NAS mount. Override this to point
+  # at the actual SD card (e.g. a bind-mounted host path) if "/" reports NAS
+  # data instead of the SD card.
+  disk_root_path: "/"

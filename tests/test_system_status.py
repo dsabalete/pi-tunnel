@@ -64,7 +64,7 @@ def test_get_system_status_mocked():
         mock_addr.address = "192.168.1.10"
         net.return_value = {"eth0": [mock_addr]}
 
-        status = get_system_status()
+        status = get_system_status(disk_root_path="/")
 
     assert status.cpu_percent == 12.5
     assert status.ram_percent == 45.0
@@ -80,6 +80,48 @@ def test_get_system_status_mocked():
     assert status.uptime_seconds == 1000
     assert status.local_ip == "192.168.1.10"
     assert status.public_ip == "1.2.3.4"
+
+
+def test_get_system_status_custom_disk_root_path():
+    """get_system_status uses custom disk_root_path for root disk metrics."""
+    disk_root_result = (50 * 1024**3, 20 * 1024**3, 30 * 1024**3)  # 50GB total, 20GB used
+    disk_nas_result = (200 * 1024**3, 60 * 1024**3, 140 * 1024**3)
+
+    def mock_shutil_disk_usage(path):
+        class MockUsage:
+            def __init__(self, total, used, free):
+                self.total = total
+                self.used = used
+                self.free = free
+        if path == "/host/sdcard":
+            return MockUsage(*disk_root_result)
+        elif path == "/mnt/nas":
+            return MockUsage(*disk_nas_result)
+        return None
+
+    with patch("pitunnel.system.status.psutil.cpu_percent", return_value=10.0), \
+         patch("pitunnel.system.status.psutil.virtual_memory") as vm, \
+         patch("pitunnel.system.status.psutil.boot_time", return_value=1000), \
+         patch("pitunnel.system.status.psutil.net_if_addrs") as net, \
+         patch("pitunnel.system.status.time.time", return_value=2000), \
+         patch("pitunnel.system.status._get_cpu_temp", return_value=50.0), \
+         patch("pitunnel.system.status._fetch_public_ip", return_value="1.2.3.4"), \
+         patch("pitunnel.system.status.shutil.disk_usage", side_effect=mock_shutil_disk_usage):
+        vm.return_value.percent = 30.0
+        vm.return_value.used = 3 * 1024**3
+        vm.return_value.total = 8 * 1024**3
+
+        mock_addr = MagicMock()
+        mock_addr.family = 2
+        mock_addr.address = "192.168.1.10"
+        net.return_value = {"eth0": [mock_addr]}
+
+        status = get_system_status(disk_root_path="/host/sdcard")
+
+    assert status.disk_root_percent == 40.0
+    assert status.disk_root_used_gb == 20.0
+    assert status.disk_root_total_gb == 50.0
+    assert status.disk_nas_percent == 30.0
 
 
 def test_public_ip_cache():

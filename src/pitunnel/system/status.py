@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import logging
+import os
 import shutil
 import socket
 import time
@@ -11,6 +13,8 @@ from typing import Optional
 import psutil
 import urllib.request
 import urllib.error
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -112,15 +116,31 @@ def _get_disk_usage_values(path: str) -> tuple[float, float, float] | None:
     return (percent, used_gb, total_gb)
 
 
-def get_system_status() -> SystemStatus:
+def get_system_status(disk_root_path: str = "/") -> SystemStatus:
     cpu = psutil.cpu_percent(interval=0.2)
     ram = psutil.virtual_memory()
     ram_percent = ram.percent
     ram_used_gb = ram.used / (1024**3)
     ram_total_gb = ram.total / (1024**3)
     
-    # Get disk usage for root filesystem
-    disk_values = _get_disk_usage_values("/")
+    # Detect if we are likely running in Docker where the container's "/"
+    # (overlay filesystem) resides on the same host filesystem as /mnt/nas.
+    # In that case disk_root_path should be overridden to point at the SD card.
+    if disk_root_path == "/":
+        try:
+            if os.stat("/").st_dev == os.stat("/mnt/nas").st_dev:
+                logger.warning(
+                    "Root path '/' and '/mnt/nas' are on the same filesystem. "
+                    "In Docker this usually means the overlay resides on the NAS; "
+                    "set storage.disk_root_path to the SD card mount point."
+                )
+        except Exception:
+            pass
+
+    # Get disk usage for root filesystem (configurable; in Docker the overlay
+    # filesystem may reside on a NAS mount, so the path can be overridden to
+    # point at the actual SD card, e.g. the host root bind-mounted into the container).
+    disk_values = _get_disk_usage_values(disk_root_path)
     if disk_values is None:
         disk_root_percent = 0.0
         disk_root_used_gb = 0.0
