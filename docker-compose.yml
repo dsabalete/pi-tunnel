@@ -19,3 +19,6 @@ services:
     # devices:
     #   - /dev/gpiomem:/dev/gpiomem
     #   - /dev/i2c-1:/dev/i2c-1
+
+# For correct SD card usage in /status, the disk_root_path config must point to /host
+# (the bind-mounted host root). This is set in config/config.yaml.
