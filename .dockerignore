@@ -23,8 +23,7 @@ config/*.env
 config/pitunnel.env
 config/pitunnel.env.example
 
-# OpenSpec and docs artifacts
-openspec
+# Docs artifacts
 specs.md
 Todo.md
 
