@@ -117,10 +117,7 @@ Todos los comandos se emiten como mensajes de Telegram al bot. Prefijo de admini
 | `/start` | — | Registro del chat ID y bienvenida. | No |
 | `/help` | — | Lista de comandos disponibles. | No |
 | `/status` | — | Estado del sistema (CPU, RAM, temp, disco, red). | No |
-| `/sensors` | `[id]` | Lectura de uno o todos los sensores. | No |
-| `/on` / `/off` | `<id>` | Activa/desactiva un actuador registrado. | Configurable |
-| `/cmd` | `<alias>` | Ejecuta un alias de la whitelist (p. ej. `restart-mqtt`). | Sí (destructivos) |
-| `/snapshot` | — | Foto de la cámara conectada. | No |
+| `/cmd` | `<alias>` | Ejecuta un alias de la whitelist (p. ej. `restart-mqtt`, `disk-usage`). | Sí (destructivos) |
 | `/alerts` | — | Lista de reglas de alerta activas. | No |
 | `/history` | `[n]` | Últimos n comandos ejecutados (def. 10). | No |
 
@@ -148,7 +145,6 @@ telegram:
 commands:
   aliases:
     restart-mqtt: "systemctl restart mosquitto"
-    disk-usage: "df -h /"
 
 sensors:
   - id: temp-salon

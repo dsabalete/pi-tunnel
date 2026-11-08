@@ -1,6 +1,4 @@
-"""
-Tests for configuration loading.
-"""
+"""Tests for configuration loading."""
 from __future__ import annotations
 
 import tempfile
@@ -43,7 +41,6 @@ telegram:
 commands:
   aliases:
     restart-mqtt: "systemctl restart mosquitto"
-    disk-usage: "df -h /"
 """
     with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
         f.write(config_yaml)
@@ -52,6 +49,25 @@ commands:
 
     assert "restart-mqtt" in config.commands.aliases
     assert config.commands.aliases["restart-mqtt"].command == "systemctl restart mosquitto"
+
+    Path(f.name).unlink()
+
+
+def test_config_load_with_disk_usage_alias() -> None:
+    """Test loading config still supports disk-usage alias for /cmd."""
+    config_yaml = """
+telegram:
+  authorized_users: [123456789]
+commands:
+  aliases:
+    disk-usage: "df -h /"
+"""
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
+        f.write(config_yaml)
+        f.flush()
+        config = Config.load(f.name)
+
+    assert "disk-usage" in config.commands.aliases
     assert config.commands.aliases["disk-usage"].command == "df -h /"
 
     Path(f.name).unlink()

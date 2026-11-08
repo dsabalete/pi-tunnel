@@ -91,11 +91,9 @@ class CommandRegistry:
 
     def get_help_text(self, language: str = "es") -> str:
         """
-        Generate help text for all commands.
+        Generate help text for built-in commands.
 
-        Built-in commands that have direct handlers are shown.
-        External aliases from config can be called with /cmd <alias> but
-        are not shown in help to avoid confusion (they're not direct handlers).
+        Only shows commands that have direct handlers implemented.
 
         Args:
             language: Language code (es/en).
@@ -107,13 +105,11 @@ class CommandRegistry:
 
         lines = [t("help_title")]
 
-        # Add built-in commands that have direct handlers
-        # (snapshot is NOT included - not implemented)
+        # Built-in commands that have direct handlers
+        # (sensors, on, off are hidden - not applicable to this setup)
         built_in_handlers = [
+            "cmd",
             "status",
-            "sensors",
-            "on",
-            "off",
             "alerts",
             "history",
             "start",

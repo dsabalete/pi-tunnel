@@ -1,6 +1,4 @@
-"""
-Internationalization (i18n) for PiTunnel.
-"""
+"""Internationalization (i18n) for PiTunnel."""
 from __future__ import annotations
 
 from pathlib import Path
@@ -58,15 +56,10 @@ class I18n:
                 "help_title": "📋 *Comandos disponibles:*",
                 "help_cmd": "/cmd <alias> - Ejecuta un comando de la lista blanca",
                 "help_status": "/status - Estado del sistema (CPU, RAM, temp, disco, red)",
-                "help_sensors": "/sensors [id] - Lectura de sensores",
-                "help_on": "/on <id> - Enciende un actuador",
-                "help_off": "/off <id> - Apaga un actuador",
-                "help_snapshot": "/snapshot - Foto de la cámara",
                 "help_alerts": "/alerts - Reglas de alerta activas",
                 "help_history": "/history [n] - Historial de comandos (def. 10)",
                 "help_start": "/start - Registra tu chat y muestra bienvenida",
                 "help_help": "/help - Esta ayuda",
-                "help_disk_usage": "/disk-usage - Uso de disco",
                 "help_restart_mqtt": "/restart-mqtt - Reiniciar mosquitto",
                 "unauthorized": "⛔ No estás autorizado para usar este bot.",
                 "unknown_command": "❓ Comando no reconocido. Usa /help.",
@@ -112,15 +105,10 @@ class I18n:
                 "help_title": "📋 *Available commands:*",
                 "help_cmd": "/cmd <alias> - Execute a whitelisted command",
                 "help_status": "/status - System status (CPU, RAM, temp, disk, network)",
-                "help_sensors": "/sensors [id] - Sensor readings",
-                "help_on": "/on <id> - Turn on an actuator",
-                "help_off": "/off <id> - Turn off an actuator",
-                "help_snapshot": "/snapshot - Camera snapshot",
                 "help_alerts": "/alerts - Active alert rules",
                 "help_history": "/history [n] - Command history (default 10)",
                 "help_start": "/start - Register your chat and show welcome",
                 "help_help": "/help - This help",
-                "help_disk_usage": "/disk-usage - Disk usage",
                 "help_restart_mqtt": "/restart-mqtt - Restart mosquitto",
                 "unauthorized": "⛔ You are not authorized to use this bot.",
                 "unknown_command": "❓ Unknown command. Use /help.",

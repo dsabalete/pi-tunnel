@@ -19,13 +19,11 @@ def test_registry_load_simple_aliases() -> None:
     """Test loading simple command aliases."""
     config = make_config({
         "restart-mqtt": CommandAlias(command="systemctl restart mosquitto"),
-        "disk-usage": CommandAlias(command="df -h /"),
     })
 
     registry = CommandRegistry(config)
 
     assert registry.validate_alias("restart-mqtt")
-    assert registry.validate_alias("disk-usage")
     assert not registry.validate_alias("invalid")
 
 
@@ -97,6 +95,8 @@ def test_registry_help_text() -> None:
     
     External aliases from config are not shown in help because they
     require /cmd <alias> prefix, not direct invocation.
+    Built-in commands like /sensors, /on, /off are hidden as they
+    are not applicable to this setup.
     """
     config = make_config({
         "test": CommandAlias(command="echo test", description="Test command"),
@@ -111,9 +111,13 @@ def test_registry_help_text() -> None:
     assert "Test command" not in help_text
     # Built-in handlers should appear
     assert "/status" in help_text
-    assert "/sensors" in help_text
     assert "/alerts" in help_text
     assert "/help" in help_text
+    assert "/cmd" in help_text  # Important: shows whitelist command usage
+    # These should NOT appear (not applicable to this setup)
+    assert "/sensors" not in help_text
+    assert "/on" not in help_text
+    assert "/off" not in help_text
 
 
 def test_registry_duplicate_alias_raises() -> None:
