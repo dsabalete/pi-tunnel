@@ -108,6 +108,9 @@ class TestStatusCommand:
                 ram_percent=50.0,
                 ram_used_gb=4.0,
                 ram_total_gb=8.0,
+                ram_used_mb=4096.0,
+                ram_total_mb=8192.0,
+                ram_free_mb=4096.0,
                 cpu_temp_c=45.5,
                 disk_root_percent=70.0,
                 disk_root_used_gb=50.0,
@@ -130,7 +133,7 @@ class TestStatusCommand:
             # Verify content
             assert "Estado del sistema" in text
             assert "CPU: 25.0%" in text
-            assert "RAM: 50.0%" in text
+            assert "RAM: 50.0% (usado 4096 MB / libre 4096 MB)" in text or "RAM: 50.0%" in text
             assert "Temp CPU: 45.5°C" in text
             assert "Disco /: 70.0%" in text
             assert "Disco /mnt/nas" not in text  # disk_nas_percent is None, should not show
@@ -148,6 +151,9 @@ class TestStatusCommand:
                 ram_percent=60.0,
                 ram_used_gb=6.0,
                 ram_total_gb=10.0,
+                ram_used_mb=6144.0,
+                ram_total_mb=10240.0,
+                ram_free_mb=4096.0,
                 cpu_temp_c=50.0,
                 disk_root_percent=80.0,
                 disk_root_used_gb=80.0,

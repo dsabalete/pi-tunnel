@@ -57,6 +57,7 @@ def test_get_system_status_mocked():
         vm.return_value.percent = 45.0
         vm.return_value.used = 4 * 1024**3  # 4 GB
         vm.return_value.total = 8 * 1024**3  # 8 GB
+        vm.return_value.available = 4 * 1024**3  # 4 GB available
 
         # net_if_addrs returns one interface with IPv4
         mock_addr = MagicMock()
@@ -70,6 +71,9 @@ def test_get_system_status_mocked():
     assert status.ram_percent == 45.0
     assert status.ram_used_gb == 4.0
     assert status.ram_total_gb == 8.0
+    assert status.ram_used_mb == 4096.0
+    assert status.ram_total_mb == 8192.0
+    assert status.ram_free_mb == 4096.0
     assert status.cpu_temp_c == 55.0
     assert status.disk_root_percent == 60.0
     assert status.disk_root_used_gb == 60.0
@@ -110,6 +114,7 @@ def test_get_system_status_custom_disk_root_path():
         vm.return_value.percent = 30.0
         vm.return_value.used = 3 * 1024**3
         vm.return_value.total = 8 * 1024**3
+        vm.return_value.available = 5 * 1024**3
 
         mock_addr = MagicMock()
         mock_addr.family = 2

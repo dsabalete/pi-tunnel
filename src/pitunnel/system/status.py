@@ -23,6 +23,9 @@ class SystemStatus:
     ram_percent: float
     ram_used_gb: float
     ram_total_gb: float
+    ram_used_mb: float
+    ram_total_mb: float
+    ram_free_mb: float
     cpu_temp_c: Optional[float]
     disk_root_percent: float
     disk_root_used_gb: float
@@ -122,6 +125,9 @@ def get_system_status(disk_root_path: str = "/") -> SystemStatus:
     ram_percent = ram.percent
     ram_used_gb = ram.used / (1024**3)
     ram_total_gb = ram.total / (1024**3)
+    ram_used_mb = ram.used / (1024**2)
+    ram_total_mb = ram.total / (1024**2)
+    ram_free_mb = ram.available / (1024**2)
     
     # Detect if we are likely running in Docker where the container's "/"
     # (overlay filesystem) resides on the same host filesystem as /mnt/nas.
@@ -166,6 +172,9 @@ def get_system_status(disk_root_path: str = "/") -> SystemStatus:
         ram_percent=ram_percent,
         ram_used_gb=ram_used_gb,
         ram_total_gb=ram_total_gb,
+        ram_used_mb=ram_used_mb,
+        ram_total_mb=ram_total_mb,
+        ram_free_mb=ram_free_mb,
         cpu_temp_c=cpu_temp,
         disk_root_percent=disk_root_percent,
         disk_root_used_gb=disk_root_used_gb,

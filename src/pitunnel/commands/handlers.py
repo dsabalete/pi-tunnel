@@ -197,7 +197,14 @@ async def status_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
 
     lines = [t("status_title")]
     lines.append(t("status_cpu", cpu=f"{status.cpu_percent:.1f}"))
-    lines.append(t("status_ram", ram=f"{status.ram_percent:.1f}", used=f"{status.ram_used_gb:.1f}", total=f"{status.ram_total_gb:.1f}"))
+    lines.append(
+        t(
+            "status_ram",
+            ram=f"{status.ram_percent:.1f}",
+            used=f"{status.ram_used_mb:.0f}",
+            free=f"{status.ram_free_mb:.0f}",
+        )
+    )
     temp_str = f"{status.cpu_temp_c:.1f}" if status.cpu_temp_c is not None else "N/A"
     lines.append(t("status_temp", temp=temp_str))
     lines.append(t("status_disk", disk=f"{status.disk_root_percent:.1f}", used=f"{status.disk_root_used_gb:.1f}", total=f"{status.disk_root_total_gb:.1f}"))
