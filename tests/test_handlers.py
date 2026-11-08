@@ -133,7 +133,7 @@ class TestStatusCommand:
             # Verify content
             assert "Estado del sistema" in text
             assert "CPU: 25.0%" in text
-            assert "RAM: 50.0% (usado 4096 MB / libre 4096 MB)" in text or "RAM: 50.0%" in text
+            assert "RAM: 50.0% (4096/4096 MB)" in text or "RAM: 50.0%" in text
             assert "Temp CPU: 45.5°C" in text
             assert "Disco /: 70.0%" in text
             assert "Disco /mnt/nas" not in text  # disk_nas_percent is None, should not show
