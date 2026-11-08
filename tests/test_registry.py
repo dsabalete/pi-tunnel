@@ -1,6 +1,4 @@
-"""
-Tests for command registry.
-"""
+"""Tests for command registry."""
 from __future__ import annotations
 
 import pytest
@@ -95,7 +93,11 @@ def test_registry_list_commands() -> None:
 
 
 def test_registry_help_text() -> None:
-    """Test generating help text."""
+    """Test generating help text shows only built-in handlers.
+    
+    External aliases from config are not shown in help because they
+    require /cmd <alias> prefix, not direct invocation.
+    """
     config = make_config({
         "test": CommandAlias(command="echo test", description="Test command"),
     })
@@ -104,8 +106,14 @@ def test_registry_help_text() -> None:
     help_text = registry.get_help_text("es")
 
     assert "Comandos disponibles" in help_text
-    assert "test" in help_text
-    assert "Test command" in help_text
+    # External aliases should NOT appear in help (they need /cmd prefix)
+    assert "test" not in help_text
+    assert "Test command" not in help_text
+    # Built-in handlers should appear
+    assert "/status" in help_text
+    assert "/sensors" in help_text
+    assert "/alerts" in help_text
+    assert "/help" in help_text
 
 
 def test_registry_duplicate_alias_raises() -> None:

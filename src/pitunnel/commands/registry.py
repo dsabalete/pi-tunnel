@@ -1,6 +1,4 @@
-"""
-Command registry for PiTunnel.
-"""
+"""Command registry for PiTunnel."""
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -95,6 +93,10 @@ class CommandRegistry:
         """
         Generate help text for all commands.
 
+        Built-in commands that have direct handlers are shown.
+        External aliases from config can be called with /cmd <alias> but
+        are not shown in help to avoid confusion (they're not direct handlers).
+
         Args:
             language: Language code (es/en).
 
@@ -105,25 +107,20 @@ class CommandRegistry:
 
         lines = [t("help_title")]
 
-        for cmd in self.list_commands():
-            desc = cmd.description or ""
-            if cmd.destructive:
-                desc = f"⚠️ {desc}"
-            lines.append(f"• `/{cmd.alias}` - {desc}")
-
-        # Add built-in commands
-        lines.extend([
-            "",
-            t("help_status"),
-            t("help_sensors"),
-            t("help_on"),
-            t("help_off"),
-            t("help_snapshot"),
-            t("help_alerts"),
-            t("help_history"),
-            t("help_start"),
-            t("help_help"),
-        ])
+        # Add built-in commands that have direct handlers
+        # (snapshot is NOT included - not implemented)
+        built_in_handlers = [
+            "status",
+            "sensors",
+            "on",
+            "off",
+            "alerts",
+            "history",
+            "start",
+            "help",
+        ]
+        for alias in built_in_handlers:
+            lines.append(t(f"help_{alias}"))
 
         return "\n".join(lines)
 
