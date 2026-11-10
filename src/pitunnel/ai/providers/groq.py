@@ -39,7 +39,7 @@ class GroqProvider(AIProvider):
         if not self.api_key:
             raise ValueError("Groq API key not configured")
 
-        url = "https://api.groq.com/v1/chat/completions"
+        url = "https://api.groq.com/openai/v1/chat/completions"
         messages = self.build_messages(system_prompt, user_message)
 
         payload = {
