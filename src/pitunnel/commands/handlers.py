@@ -19,6 +19,8 @@ from pitunnel.core.i18n import t
 from pitunnel.core.logging import get_logger
 from pitunnel.system.status import get_system_status
 from pitunnel.alerts.engine import AlertEngine
+from pitunnel.ai.manager import AIEventManager
+from pitunnel.ai.providers.groq import GroqProvider
 
 logger = get_logger(__name__)
 
@@ -353,6 +355,58 @@ async def off_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         await update.message.reply_text(t("actuator_error", id=actuator_id))
 
 
+async def ai_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Handle /ai <message> command for AI chat."""
+    if update.message is None:
+        return
+
+    args = context.args
+    if not args:
+        await update.message.reply_text(
+            "🤖 Comando de IA\n\n"
+            "Uso: /ai <tu pregunta>\n\n"
+            "Ejemplo: /ai ¿Qué hora es?"
+        )
+        return
+
+    user_message = " ".join(args)
+
+    # Get AI config
+    ai_config = context.bot_data.get("config").ai
+    if not ai_config or not ai_config.enabled:
+        await update.message.reply_text("🤖 La funcionalidad de IA no está habilitada.")
+        return
+
+    # Create AI event manager
+    ai_manager = context.bot_data.get("ai_manager")
+    if ai_manager is None:
+        if ai_config.provider == "groq" and ai_config.api_key:
+            provider = GroqProvider(api_key=ai_config.api_key, model=ai_config.model)
+            ai_manager = AIEventManager(provider=provider)
+            context.bot_data["ai_manager"] = ai_manager
+        else:
+            await update.message.reply_text(
+                "🤖 AI no configurado.\n\n"
+                "Configura la sección 'ai' en config.yaml o añade al .env:"
+                r"`AI_API_KEY=your_key`"
+            )
+            return
+
+    # Generate response
+    response = await ai_manager.generate_response(
+        system_prompt=ai_config.system_prompt,
+        user_message=user_message,
+        max_tokens=ai_config.max_tokens,
+        temperature=ai_config.temperature,
+    )
+
+    if response is None:
+        await update.message.reply_text("🤖 Error al generar respuesta. Verifica la configuración de la API.")
+        return
+
+    await update.message.reply_text(response.content, parse_mode="Markdown")
+
+
 def setup_handlers(application: Any, config: Config) -> None:
     """Register all command handlers on the application."""
     authorized_filter = get_authorized_filter(config)
@@ -361,6 +415,7 @@ def setup_handlers(application: Any, config: Config) -> None:
     application.add_handler(CommandHandler("start", start_command, filters=authorized_filter))
     application.add_handler(CommandHandler("help", help_command, filters=authorized_filter))
     application.add_handler(CommandHandler("cmd", cmd_command, filters=authorized_filter))
+    application.add_handler(CommandHandler("ai", ai_command, filters=authorized_filter))
     application.add_handler(CommandHandler("history", history_command, filters=authorized_filter))
     application.add_handler(CommandHandler("status", status_command, filters=authorized_filter))
     application.add_handler(CommandHandler("alerts", alerts_command, filters=authorized_filter))

@@ -112,6 +112,7 @@ def test_registry_help_text() -> None:
     # Built-in handlers should appear
     assert "/status" in help_text
     assert "/alerts" in help_text
+    assert "/ai" in help_text
     assert "/help" in help_text
     assert "/cmd" in help_text  # Important: shows whitelist command usage
     # These should NOT appear (not applicable to this setup)

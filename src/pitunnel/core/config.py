@@ -90,6 +90,18 @@ class AlertsConfig:
 
 
 @dataclass
+class AIConfig:
+    """AI provider configuration."""
+    enabled: bool = False
+    provider: str = "groq"  # groq, nvidia, openrouter, openai, ollama
+    api_key: str = ""
+    model: str = "llama-3.3-70b-versatile"
+    max_tokens: int = 1024
+    temperature: float = 0.7
+    system_prompt: str = "Eres un asistente útil."
+
+
+@dataclass
 class Config:
     """Main configuration container."""
     telegram: TelegramConfig = field(default_factory=TelegramConfig)
@@ -99,6 +111,7 @@ class Config:
     alerts: AlertsConfig = field(default_factory=AlertsConfig)
     limits: LimitsConfig = field(default_factory=LimitsConfig)
     storage: dict[str, Any] = field(default_factory=dict)
+    ai: AIConfig = field(default_factory=AIConfig)
 
     @classmethod
     def load(cls, config_path: str | Path | None = None) -> Config:
@@ -217,6 +230,19 @@ class Config:
             )
 
         config.storage = raw.get("storage", {"database_path": "./db.sqlite3"})
+
+        # AI
+        if "ai" in raw:
+            ai_config = raw["ai"]
+            config.ai = AIConfig(
+                enabled=ai_config.get("enabled", False),
+                provider=ai_config.get("provider", "groq"),
+                api_key=ai_config.get("api_key", ""),
+                model=ai_config.get("model", "llama-3.3-70b-versatile"),
+                max_tokens=ai_config.get("max_tokens", 1024),
+                temperature=ai_config.get("temperature", 0.7),
+                system_prompt=ai_config.get("system_prompt", "Eres un asistente útil."),
+            )
 
         return config
 
