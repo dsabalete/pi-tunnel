@@ -8,29 +8,6 @@ commands:
     restart-mqtt: "systemctl restart mosquitto"
     disk-usage: "df -h /"
 
-sensors:
-  - id: temp-salon
-    type: dht22
-    pin: 4
-    interval_s: 60
-    alert:
-      when: "> 27.5"
-      cooldown_min: 30
-
-actuators:
-  - id: luz-porche
-    type: relay
-    pin: 17
-    confirm: false
-
-alerts:
-  rules:
-    - rule_id: temp-high
-      sensor_id: temp-salon
-      when: "> 27.5"
-      cooldown_min: 30
-      enabled: true
-
 limits:
   command_timeout_s: 10
   max_output_chars: 4000

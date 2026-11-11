@@ -1,5 +1,4 @@
 """Database connection and schema management for PiTunnel."""
-
 from __future__ import annotations
 
 import sqlite3
@@ -30,30 +29,6 @@ class Database:
                 stderr TEXT
             );
             CREATE INDEX IF NOT EXISTS idx_command_history_ts ON command_history (ts DESC);
-            """,
-        ),
-        (
-            3,
-            """
-            CREATE TABLE IF NOT EXISTS sensor_readings (
-                ts REAL NOT NULL,
-                sensor_id TEXT NOT NULL,
-                value REAL NOT NULL,
-                unit TEXT
-            );
-            CREATE INDEX IF NOT EXISTS idx_sensor_readings_sensor_ts ON sensor_readings (sensor_id, ts DESC);
-            """,
-        ),
-        (
-            4,
-            """
-            CREATE TABLE IF NOT EXISTS alert_history (
-                ts REAL NOT NULL,
-                rule_id TEXT NOT NULL,
-                sensor_id TEXT NOT NULL,
-                value REAL NOT NULL
-            );
-            CREATE INDEX IF NOT EXISTS idx_alert_history_rule_ts ON alert_history (rule_id, ts DESC);
             """,
         ),
     ]

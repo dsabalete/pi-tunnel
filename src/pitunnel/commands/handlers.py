@@ -18,26 +18,10 @@ from pitunnel.core.config import Config
 from pitunnel.core.i18n import t
 from pitunnel.core.logging import get_logger
 from pitunnel.system.status import get_system_status
-from pitunnel.alerts.engine import AlertEngine
 from pitunnel.ai.manager import AIEventManager
 from pitunnel.ai.providers.groq import GroqProvider
 
 logger = get_logger(__name__)
-
-# Global alert engine instance (initialized once)
-_alert_engine: Optional[AlertEngine] = None
-
-
-def get_alert_engine(history: Optional[Any] = None) -> AlertEngine:
-    """Return the global AlertEngine instance, lazily initializing it.
-
-    Args:
-        history: Optional History instance for cooldown/alert persistence.
-    """
-    global _alert_engine
-    if _alert_engine is None:
-        _alert_engine = AlertEngine(history=history)
-    return _alert_engine
 
 
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -51,15 +35,7 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
 
     await update.message.reply_text(t("welcome"))
 
-    # Send startup notification once
-    history_logger = context.bot_data.get("history_logger")
-    engine = get_alert_engine(history=history_logger)
-    if engine.should_send_startup():
-        engine.record_startup_notification()
-        # Dispatch to all authorized users
-        # (In practice the application instance sends this via bot.send_message;
-        #  we just mark it here so the engine state is consistent.)
-        logger.info("Startup notification sent to authorized users")
+    logger.info("Startup notification sent to authorized users")
 
 
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -220,141 +196,6 @@ async def status_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     await update.message.reply_text(text, parse_mode="Markdown")
 
 
-async def alerts_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Handle /alerts command."""
-    if update.message is None:
-        return
-
-    history_logger = context.bot_data.get("history_logger")
-    engine = get_alert_engine(history=history_logger)
-    rules = context.bot_data["config"].alerts.rules
-
-    lines: List[str] = [t("alerts_title")]
-
-    for rule in rules:
-        rule_id = rule.rule_id
-        sensor_id = rule.sensor_id
-        when = rule.when
-        cooldown_min = rule.cooldown_min
-
-        status_label = "OK"
-        if history_logger is not None:
-            last_ts = history_logger.get_last_alert_ts(rule_id)
-            if last_ts is not None:
-                elapsed_seconds = time.time() - last_ts
-                cooldown_seconds = cooldown_min * 60
-                if elapsed_seconds < cooldown_seconds:
-                    status_label = "COOLDOWN"
-
-        lines.append(
-            t(
-                "alert_rule",
-                id=rule_id,
-                sensor=sensor_id,
-                when=when,
-                cooldown=f"{cooldown_min}",
-                status=status_label,
-            )
-        )
-
-    text = "\n".join(lines)
-    await update.message.reply_text(text, parse_mode="Markdown")
-
-
-async def on_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Handle /on <actuator_id> command."""
-    if update.message is None:
-        return
-
-    args = context.args
-    if not args:
-        await update.message.reply_text(t("unknown_command"))
-        return
-
-    actuator_id = args[0]
-    actuator_registry = context.bot_data.get("actuator_registry")
-
-    if actuator_registry is None:
-        await update.message.reply_text("Actuator registry not initialized")
-        return
-
-    # Get actuator
-    actuator = actuator_registry.get_actuator(actuator_id)
-    if actuator is None:
-        await update.message.reply_text(t("actuator_not_found", id=actuator_id))
-        return
-
-    # Check if confirmation required
-    if actuator_registry.should_confirm(actuator_id):
-        confirmation_manager: ConfirmationManager = context.bot_data.get("confirmation_manager")
-        if confirmation_manager:
-            callback_data, keyboard = confirmation_manager.create_confirmation(
-                alias=f"on-{actuator_id}",
-                user_id=update.effective_user.id if update.effective_user else 0,
-                chat_id=update.message.chat_id,
-            )
-            await update.message.reply_text(
-                t("confirm_actuator_action", id=actuator_id, action="on"),
-                parse_mode="Markdown",
-                reply_markup=keyboard,
-            )
-            return
-
-    # Turn on
-    success = actuator.on()
-    if success:
-        await update.message.reply_text(t("actuator_on", id=actuator_id))
-    else:
-        await update.message.reply_text(t("actuator_error", id=actuator_id))
-
-
-async def off_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Handle /off <actuator_id> command."""
-    if update.message is None:
-        return
-
-    args = context.args
-    if not args:
-        await update.message.reply_text(t("unknown_command"))
-        return
-
-    actuator_id = args[0]
-    actuator_registry = context.bot_data.get("actuator_registry")
-
-    if actuator_registry is None:
-        await update.message.reply_text("Actuator registry not initialized")
-        return
-
-    # Get actuator
-    actuator = actuator_registry.get_actuator(actuator_id)
-    if actuator is None:
-        await update.message.reply_text(t("actuator_not_found", id=actuator_id))
-        return
-
-    # Check if confirmation required
-    if actuator_registry.should_confirm(actuator_id):
-        confirmation_manager: ConfirmationManager = context.bot_data.get("confirmation_manager")
-        if confirmation_manager:
-            callback_data, keyboard = confirmation_manager.create_confirmation(
-                alias=f"off-{actuator_id}",
-                user_id=update.effective_user.id if update.effective_user else 0,
-                chat_id=update.message.chat_id,
-            )
-            await update.message.reply_text(
-                t("confirm_actuator_action", id=actuator_id, action="off"),
-                parse_mode="Markdown",
-                reply_markup=keyboard,
-            )
-            return
-
-    # Turn off
-    success = actuator.off()
-    if success:
-        await update.message.reply_text(t("actuator_off", id=actuator_id))
-    else:
-        await update.message.reply_text(t("actuator_error", id=actuator_id))
-
-
 async def ai_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Handle /ai <message> command for AI chat."""
     if update.message is None:
@@ -418,28 +259,11 @@ def setup_handlers(application: Any, config: Config) -> None:
     application.add_handler(CommandHandler("ai", ai_command, filters=authorized_filter))
     application.add_handler(CommandHandler("history", history_command, filters=authorized_filter))
     application.add_handler(CommandHandler("status", status_command, filters=authorized_filter))
-    application.add_handler(CommandHandler("alerts", alerts_command, filters=authorized_filter))
-
-    # Actuator commands
-    application.add_handler(CommandHandler("on", on_command, filters=authorized_filter))
-    application.add_handler(CommandHandler("off", off_command, filters=authorized_filter))
 
     # Confirmation callbacks
     application.add_handler(CallbackQueryHandler(handle_confirmation_callback, pattern="^confirm:"))
     application.add_handler(CallbackQueryHandler(handle_confirmation_callback, pattern="^cancel:"))
 
-    # Schedule alert evaluation every 30 seconds
-    application.job_queue.run_repeating(
-        _eval_alert_job, interval=30, first=0
-    )
-
     logger.info("Command handlers registered")
 
 
-async def _eval_alert_job(context: Any) -> None:
-    """Background job that evaluates alert rules against current sensor readings."""
-    history_logger = None
-    if hasattr(context, "application") and context.application:
-        history_logger = context.application.bot_data.get("history_logger")
-    engine = get_alert_engine(history=history_logger)
-    logger.info("_eval_alert_job triggered (30s interval)")

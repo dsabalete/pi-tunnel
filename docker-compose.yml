@@ -16,11 +16,6 @@ services:
       - /:/host:ro
     env_file:
       - ./config/pitunnel.env
-    # Raspberry Pi GPIO / I2C access (uncomment if needed):
-    # privileged: true
-    # devices:
-    #   - /dev/gpiomem:/dev/gpiomem
-    #   - /dev/i2c-1:/dev/i2c-1
 
 # =============================================================================
 # RASPBERRY PI SETUP - SD CARD USAGE IN /status

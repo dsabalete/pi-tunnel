@@ -34,59 +34,11 @@ class CommandsConfig:
 
 
 @dataclass
-class SensorConfig:
-    """Single sensor configuration."""
-    id: str
-    type: str
-    pin: int | None = None
-    interval_s: int = 60
-    address: int | None = None
-    alert: dict[str, Any] | None = None
-
-
-@dataclass
-class SensorsConfig:
-    """Sensors configuration."""
-    sensors: list[SensorConfig] = field(default_factory=list)
-
-
-@dataclass
-class ActuatorConfig:
-    """Single actuator configuration."""
-    id: str
-    type: str
-    pin: int
-    confirm: bool = False
-
-
-@dataclass
-class ActuatorsConfig:
-    """Actuators configuration."""
-    actuators: list[ActuatorConfig] = field(default_factory=list)
-
-
-@dataclass
 class LimitsConfig:
     """Limits configuration."""
     command_timeout_s: int = 10
     max_output_chars: int = 4000
     history_retention_days: int = 30
-
-
-@dataclass
-class AlertRuleConfig:
-    """Single alert rule configuration."""
-    rule_id: str
-    sensor_id: str
-    when: str
-    cooldown_min: int = 30
-    enabled: bool = True
-
-
-@dataclass
-class AlertsConfig:
-    """Alerts configuration."""
-    rules: list[AlertRuleConfig] = field(default_factory=list)
 
 
 @dataclass
@@ -106,9 +58,6 @@ class Config:
     """Main configuration container."""
     telegram: TelegramConfig = field(default_factory=TelegramConfig)
     commands: CommandsConfig = field(default_factory=CommandsConfig)
-    sensors: SensorsConfig = field(default_factory=SensorsConfig)
-    actuators: ActuatorsConfig = field(default_factory=ActuatorsConfig)
-    alerts: AlertsConfig = field(default_factory=AlertsConfig)
     limits: LimitsConfig = field(default_factory=LimitsConfig)
     storage: dict[str, Any] = field(default_factory=dict)
     ai: AIConfig = field(default_factory=AIConfig)
@@ -179,46 +128,6 @@ class Config:
                         description=value.get("description", ""),
                     )
             config.commands = CommandsConfig(aliases=aliases)
-
-        # Sensors
-        if "sensors" in raw:
-            sensors = []
-            for s in raw["sensors"]:
-                sensors.append(SensorConfig(
-                    id=s["id"],
-                    type=s["type"],
-                    pin=s.get("pin"),
-                    interval_s=s.get("interval_s", 60),
-                    address=s.get("address"),
-                    alert=s.get("alert"),
-                ))
-            config.sensors = SensorsConfig(sensors=sensors)
-
-        # Actuators
-        if "actuators" in raw:
-            actuators = []
-            for a in raw["actuators"]:
-                actuators.append(ActuatorConfig(
-                    id=a["id"],
-                    type=a["type"],
-                    pin=a["pin"],
-                    confirm=a.get("confirm", False),
-                ))
-            config.actuators = ActuatorsConfig(actuators=actuators)
-
-        # Alerts
-        if "alerts" in raw:
-            alerts_raw = raw["alerts"]
-            rules = []
-            for r in alerts_raw.get("rules", []):
-                rules.append(AlertRuleConfig(
-                    rule_id=r["rule_id"],
-                    sensor_id=r["sensor_id"],
-                    when=r["when"],
-                    cooldown_min=r.get("cooldown_min", 30),
-                    enabled=r.get("enabled", True),
-                ))
-            config.alerts = AlertsConfig(rules=rules)
 
         # Limits
         if "limits" in raw:

@@ -8,12 +8,6 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /app
 
-# System deps for gpiozero/smbus2
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    build-essential \
-    libgpiod2 \
-    && rm -rf /var/lib/apt/lists/*
-
 # Install Python dependencies
 COPY pyproject.toml requirements.txt ./
 RUN pip install --upgrade pip && \

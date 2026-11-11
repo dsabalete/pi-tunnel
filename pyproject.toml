@@ -19,8 +19,6 @@ classifiers = [
 ]
 dependencies = [
     "python-telegram-bot>=21",
-    "gpiozero",
-    "smbus2",
     "psutil",
     "pyyaml",
     "apscheduler",

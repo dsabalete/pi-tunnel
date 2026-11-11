@@ -95,7 +95,7 @@ def test_registry_help_text() -> None:
     
     External aliases from config are not shown in help because they
     require /cmd <alias> prefix, not direct invocation.
-    Built-in commands like /sensors, /on, /off are hidden as they
+    Built-in commands like /sensors, /on, /off, /alerts are hidden as they
     are not applicable to this setup.
     """
     config = make_config({
@@ -111,7 +111,6 @@ def test_registry_help_text() -> None:
     assert "Test command" not in help_text
     # Built-in handlers should appear
     assert "/status" in help_text
-    assert "/alerts" in help_text
     assert "/ai" in help_text
     assert "/help" in help_text
     assert "/cmd" in help_text  # Important: shows whitelist command usage
@@ -119,6 +118,7 @@ def test_registry_help_text() -> None:
     assert "/sensors" not in help_text
     assert "/on" not in help_text
     assert "/off" not in help_text
+    assert "/alerts" not in help_text
 
 
 def test_registry_duplicate_alias_raises() -> None:

@@ -10,7 +10,7 @@ from telegram import Update, Message, User, Chat
 from telegram.ext import Application, ContextTypes
 
 from pitunnel.core.config import Config
-from pitunnel.commands.handlers import setup_handlers, start_command, help_command, status_command, history_command, alerts_command
+from pitunnel.commands.handlers import setup_handlers, start_command, help_command, status_command, history_command
 from pitunnel.storage.db import Database
 from pitunnel.storage.history import History
 
@@ -43,9 +43,6 @@ def mock_config(temp_db_path):
         'history_retention_days': 30
     })()
     config.commands = type('obj', (object,), {'aliases': {}})()
-    config.sensors = []
-    config.actuators = []
-    config.alerts = type('obj', (object,), {'rules': []})()
     config.storage = {'database_path': temp_db_path}
     return config
 
@@ -228,57 +225,6 @@ class TestHistoryCommand:
         text = call_args[0][0]
 
         assert "No hay historial" in text or "empty" in text.lower() or "historial" in text.lower()
-
-
-class TestAlertsCommand:
-    """Tests for /alerts command."""
-
-    @pytest.mark.asyncio
-    async def test_alerts_command_no_rules(self, mock_update, mock_context, mock_history):
-        """Test /alerts command with no configured rules."""
-        mock_context.bot_data["config"].alerts.rules = []
-
-        await alerts_command(mock_update, mock_context)
-
-        mock_update.message.reply_text.assert_called_once()
-        call_args = mock_update.message.reply_text.call_args
-        text = call_args[0][0]
-
-        assert "Reglas de alerta" in text or "alertas" in text.lower()
-
-    @pytest.mark.asyncio
-    async def test_alerts_command_with_rules(self, mock_update, mock_context, mock_history):
-        """Test /alerts command with configured rules."""
-        import time
-
-        # Add an alert rule to config
-        mock_context.bot_data["config"].alerts.rules = [
-            type('obj', (object,), {
-                'rule_id': 'high-temp',
-                'sensor_id': 'temp-salon',
-                'when': '> 27.5',
-                'cooldown_min': 30
-            })()
-        ]
-
-        # Add an alert in history (within cooldown)
-        mock_history.log_alert(
-            ts=time.time() - 600,  # 10 minutes ago
-            rule_id='high-temp',
-            sensor_id='temp-salon',
-            value=28.0
-        )
-
-        await alerts_command(mock_update, mock_context)
-
-        mock_update.message.reply_text.assert_called_once()
-        call_args = mock_update.message.reply_text.call_args
-        text = call_args[0][0]
-
-        assert "Reglas de alerta" in text
-        assert "high-temp" in text
-        assert "temp-salon" in text
-        assert "COOLDOWN" in text or "OK" in text
 
 
 class TestStartCommand:

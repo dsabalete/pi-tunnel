@@ -6,9 +6,6 @@ PiTunnel is a Telegram bot that allows remote control and monitoring of a Raspbe
 
 - Execute commands on the Raspberry Pi through Telegram
 - Monitor system status (CPU, RAM, temperature, disk usage)
-- Read sensor data from connected sensors (temperature, humidity, etc.)
-- Control actuators (relays, LEDs, etc.)
-- Proactive alerts and notifications
 
 ## Requirements
 
@@ -55,13 +52,6 @@ python -m pitunnel.main
   Public IP: 37.222.144.110
   ```
 
-- `/alerts` – List all configured alert rules with threshold, cooldown, and current status (OK / COOLDOWN).
-  Example output:
-  ```
-  🚨 *Active alert rules:*
-  • temp-high: temp-salon > 27.5 (cooldown: 30 min) - OK
-  ```
-
 ### Docker
 
 Build the image:
@@ -69,7 +59,7 @@ Build the image:
 docker buildx build --platform linux/amd64,linux/arm64 -t pitunnel:latest .
 ```
 
-Create data directory for SQLite persistence (required for alert cooldowns):
+Create data directory for SQLite persistence:
 ```bash
 mkdir -p data
 ```
@@ -81,20 +71,10 @@ docker compose up -d
 
 Configuration is provided via volume mounts:
 - `./config:/app/config:ro` — bot configuration (read-only)
-- `./data:/app/data` — SQLite database for alert cooldown persistence
+- `./data:/app/data` — SQLite database for command history persistence
 - Environment file: `./config/pitunnel.env`
 
 Ensure `config/config.yaml`, `config/pitunnel.env`, and `data/` directory exist on the host before starting.
-
-For Raspberry Pi GPIO / I2C access, run with privileged mode or device mounts. Example override in `docker-compose.override.yml`:
-```yaml
-services:
-  pitunnel:
-    privileged: true
-    devices:
-      - /dev/gpiomem:/dev/gpiomem
-      - /dev/i2c-1:/dev/i2c-1
-```
 
 ## Project Structure
 

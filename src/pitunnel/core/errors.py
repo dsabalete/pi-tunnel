@@ -55,18 +55,6 @@ class TimeoutError(PiTunnelError):
         self.timeout = timeout
 
 
-class SensorError(PiTunnelError):
-    """Raised when sensor reading fails."""
-
-    def __init__(self, sensor_id: str, reason: str) -> None:
-        super().__init__(
-            f"Sensor '{sensor_id}' error: {reason}",
-            f"🌡 Sensor {sensor_id} no disponible."
-        )
-        self.sensor_id = sensor_id
-        self.reason = reason
-
-
 class CommandExecutionError(PiTunnelError):
     """Raised when command execution fails."""
 
@@ -92,7 +80,7 @@ class ConfirmationExpiredError(PiTunnelError):
 
 class ConfirmationRequiredError(PiTunnelError):
     """Raised when confirmation is required but not provided."""
-
+    
     def __init__(self, alias: str) -> None:
         super().__init__(
             f"Confirmation required for '{alias}'",
@@ -107,7 +95,6 @@ ERROR_MESSAGES: dict[str, str] = {
     "E_UNKNOWN_CMD": "❓ Comando no reconocido. Usa /help.",
     "E_WHITELIST": "🚫 Comando fuera de la lista permitida.",
     "E_TIMEOUT": "⏱ Tiempo de espera agotado (10 s).",
-    "E_SENSOR": "🌡 Sensor no disponible.",
     "E_INTERNAL": "⚠ Error interno. Revisa los logs.",
     "E_CONFIRMATION_EXPIRED": "⏱ La confirmación ha expirado. Intenta de nuevo.",
     "E_CONFIRMATION_REQUIRED": "⚠️ Esta acción requiere confirmación.",
@@ -152,8 +139,6 @@ async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> N
             user_message = ERROR_MESSAGES["E_WHITELIST"]
         elif isinstance(error, TimeoutError):
             user_message = ERROR_MESSAGES["E_TIMEOUT"]
-        elif isinstance(error, SensorError):
-            user_message = ERROR_MESSAGES["E_SENSOR"]
         elif isinstance(error, ConfirmationExpiredError):
             user_message = ERROR_MESSAGES["E_CONFIRMATION_EXPIRED"]
         elif isinstance(error, ConfirmationRequiredError):

@@ -106,12 +106,10 @@ class CommandRegistry:
         lines = [t("help_title")]
 
         # Built-in commands that have direct handlers
-        # (sensors, on, off are hidden - not applicable to this setup)
         built_in_handlers = [
             "ai",
             "cmd",
             "status",
-            "alerts",
             "history",
             "start",
             "help",

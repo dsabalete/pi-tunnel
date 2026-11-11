@@ -4,14 +4,12 @@
 
 ## 1. Visión general y objetivos
 
-PiTunnel es un servicio hospedado en una Raspberry Pi que permite a un usuario autorizado controlar y monitorizar el dispositivo (y los sensores/actuadores conectados) desde cualquier lugar mediante un bot de Telegram, sin exponer puertos públicos ni depender de servicios de terceros beyond la propia API de Telegram.
+PiTunnel es un servicio hospedado en una Raspberry Pi que permite a un usuario autorizado controlar y monitorizar el dispositivo desde cualquier lugar mediante un bot de Telegram, sin exponer puertos públicos ni depender de servicios de terceros más allá de la propia API de Telegram.
 
 **Objetivos:**
 
 - Ejecutar comandos de forma segura en la Pi (reboot, servicios, estado del sistema).
-- Leer el estado de sensores (temperatura, humedad, GPIO, cámaras) bajo demanda.
-- Recibir notificaciones proactivas (alertas de umbral, eventos, caídas de servicio).
-- Accionar dispositivos de domótica conectados (relés, LEDs, interruptores inteligentes).
+- Monitorizar el estado del sistema (CPU, RAM, temperatura, disco, red).
 - Operar 24/7 con bajo consumo y recuperación automática ante fallos.
 
 **No objetivos (v1):**
@@ -29,14 +27,10 @@ PiTunnel es un servicio hospedado en una Raspberry Pi que permite a un usuario a
 | RF-01 | El bot solo responde a usuarios autorizados (allowlist de Telegram user IDs); ignora y registra a los demás. | Alta |
 | RF-02 | Comando `/status`: CPU, RAM, temperatura, disco, uptime, IP local y pública. | Alta |
 | RF-03 | Comando `/cmd <comando>`: ejecuta comandos de shell desde una lista blanca configurable. | Alta |
-| RF-04 | Comando `/sensors`: devuelve lecturas actuales de todos los sensores registrados. | Alta |
-| RF-05 | Comandos de actuación: `/on <id>`, `/off <id>` para relés/GPIO registrados. | Alta |
-| RF-06 | Notificaciones proactivas: alertas por umbral (p. ej. temp > 70 °C), eventos de hardware y reinicios del servicio. | Alta |
-| RF-07 | Botones inline (InlineKeyboard) para acciones frecuentes y confirmaciones peligrosas. | Media |
-| RF-08 | Comando `/help` con lista dinámica de comandos según el perfil de usuario. | Media |
-| RF-09 | Historial de comandos ejecutados con timestamp, usuario y resultado (retención configurable, por defecto 30 días). | Media |
-| RF-10 | Comando `/snapshot`: captura de cámara (Picam/USB) enviada como foto. | Baja |
-| RF-11 | Soporte de comandos en español e inglés (respuestas localizadas). | Baja |
+| RF-04 | Botones inline (InlineKeyboard) para acciones frecuentes y confirmaciones peligrosas. | Media |
+| RF-05 | Comando `/help` con lista dinámica de comandos según el perfil de usuario. | Media |
+| RF-06 | Historial de comandos ejecutados con timestamp, usuario y resultado (retención configurable, por defecto 30 días). | Media |
+| RF-07 | Soporte de comandos en español e inglés (respuestas localizadas). | Baja |
 
 ### 2.2 Requisitos no funcionales
 
@@ -61,9 +55,6 @@ flowchart TD
   Bot["PiTunnel Bot (polling)"]
   Auth["Módulo de autorización (allowlist)"]
   Cmd["Ejecutor de comandos (whitelist shell)"]
-  Sensors["Driver de sensores (GPIO/I2C/1-Wire)"]
-  Actuators["Driver de actuadores (relés)"]
-  Alerts["Motor de alertas y umbrales"]
   Store["SQLite: historial y configuración"]
   OS["Raspberry Pi OS / systemd"]
   User -->|"mensaje / comando"| TG
@@ -71,12 +62,7 @@ flowchart TD
   Bot --> Auth
   Auth -->|"autorizado"| Cmd
   Cmd --> OS
-  Bot --> Sensors
-  Bot --> Actuators
-  Sensors --> Alerts
-  Alerts -->|"sendMessage / alerta"| TG
   Cmd --> Store
-  Sensors --> Store
 ```
 
 ### 3.2 Flujo de un comando
@@ -102,10 +88,10 @@ sequenceDiagram
 | Decisión | Elección | Justificación |
 |----------|----------|---------------|
 | Recepción de mensajes | Long polling (no webhook) | Evita puertos abiertos y certificados; funciona tras CGNAT. |
-| Lenguaje | Python 3.11+ con `python-telegram-bot` v21 | Madurez de la librería, fácil acceso a GPIO vía `gpiozero`/`smbus2`. |
+| Lenguaje | Python 3.11+ con `python-telegram-bot` v21 | Madurez de la librería. |
 | Persistencia | SQLite (WAL) | Sin servidor de BD, suficiente para historial y configuración. |
 | Ejecución de comandos | Whitelist + `subprocess` con argumentos fijos | Nunca shell interpolation de entrada del usuario. |
-| Aislamiento | Servicio systemd dedicado, usuario no root (`pitunnel`), grupos `gpio`, `i2c`, `video` | Principio de mínimo privilegio. |
+| Aislamiento | Servicio systemd dedicado, usuario no root (`pitunnel`) | Principio de mínimo privilegio. |
 | Configuración | `config.yaml` + secretos en `EnvironmentFile` (permisos 600) | Separación de configuración y credenciales. |
 
 ## 4. Interfaz de comandos (API de usuario)
@@ -118,7 +104,6 @@ Todos los comandos se emiten como mensajes de Telegram al bot. Prefijo de admini
 | `/help` | — | Lista de comandos disponibles. | No |
 | `/status` | — | Estado del sistema (CPU, RAM, temp, disco, red). | No |
 | `/cmd` | `<alias>` | Ejecuta un alias de la whitelist (p. ej. `restart-mqtt`, `disk-usage`). | Sí (destructivos) |
-| `/alerts` | — | Lista de reglas de alerta activas. | No |
 | `/history` | `[n]` | Últimos n comandos ejecutados (def. 10). | No |
 
 **Formato de respuesta:** texto plano con Markdown de Telegram; resultados de shell en bloque `monoespaciado`; respuestas > 4096 caracteres se truncan con sufijo `… (truncado)` o se envían como documento.
@@ -131,7 +116,6 @@ Todos los comandos se emiten como mensajes de Telegram al bot. Prefijo de admini
 | E_UNKNOWN_CMD | "❓ Comando no reconocido. Usa /help." |
 | E_WHITELIST | "🚫 Comando fuera de la lista permitida." |
 | E_TIMEOUT | "⏱ Tiempo de espera agotado (10 s)." |
-| E_SENSOR | "🌡 Sensor <id> no disponible." |
 | E_INTERNAL | "⚠ Error interno. Revisa los logs." |
 
 ## 5. Modelo de configuración (`config.yaml`, esquema resumido)
@@ -145,21 +129,6 @@ telegram:
 commands:
   aliases:
     restart-mqtt: "systemctl restart mosquitto"
-
-sensors:
-  - id: temp-salon
-    type: dht22
-    pin: 4
-    interval_s: 60
-    alert:
-      when: "> 27.5"
-      cooldown_min: 30
-
-actuators:
-  - id: luz-porche
-    type: relay
-    pin: 17
-    confirm: false
 
 limits:
   command_timeout_s: 10
@@ -175,7 +144,7 @@ limits:
 4. **Red:** únicamente conexiones salientes a `api.telegram.org` (443). UFW con política deny incoming.
 5. **Confirmaciones:** acciones marcadas `destructive` requieren pulsar un botón inline (callback con expiración de 60 s).
 6. **Auditoría:** log inmutable en SQLite de cada comando (usuario, timestamp, alias, código de salida).
-7. **Ficheros:** servicio ejecuta como usuario sin privilegios; acceso a hardware mediante grupos de Linux, no root.
+7. **Ficheros:** servicio ejecuta como usuario sin privilegios.
 
 ## 7. Despliegue
 
@@ -189,7 +158,7 @@ limits:
 ### 7.2 Pasos
 
 1. Crear bot con @BotFather y obtener token.
-2. Crear usuario y grupos: `sudo useradd -r -m -G gpio,i2c,video pitunnel`.
+2. Crear usuario: `sudo useradd -r -m pitunnel`.
 3. Instalar dependencias: `pip install -r requirements.txt` (en venv) o paquete `.deb`/contenedor.
 4. Desplegar `config.yaml` en `/etc/pitunnel/config.yaml` y secretos en `/etc/pitunnel.env`.
 5. Instalar unidad systemd:
@@ -213,7 +182,7 @@ WantedBy=multi-user.target
 ```
 
 6. `sudo systemctl enable --now pitunnel`.
-7. Verificación: `/start`, `/status` y `/sensors` desde un usuario autorizado; comprobar `journalctl -u pitunnel -f`.
+7. Verificación: `/start`, `/status` desde un usuario autorizado; comprobar `journalctl -u pitunnel -f`.
 
 ### 7.3 Actualización y rollback
 
@@ -228,14 +197,13 @@ WantedBy=multi-user.target
 | CA-01 | Usuario no autorizado envía `/status` | Sin respuesta; log `WARNING` con user ID. |
 | CA-02 | `/status` con carga normal | Respuesta < 2 s con todas las métricas. |
 | CA-03 | `/cmd` alias destructivo | Botón de confirmación; ejecuta solo tras pulsar. |
-| CA-04 | Sensor DHT22 supera umbral | Alerta única; sin repetición hasta cooldown. |
-| CA-05 | Corta la red 5 min | Reintento con backoff; recupera y procesa mensajes encolados. |
-| CA-06 | Reinicio de la Pi | Servicio activo < 60 s tras el arranque; notifica "servicio en línea". |
-| CA-07 | Salida de comando > 4096 chars | Respuesta truncada o enviada como documento. |
+| CA-04 | Corta la red 5 min | Reintento con backoff; recupera y procesa mensajes encolados. |
+| CA-05 | Reinicio de la Pi | Servicio activo < 60 s tras el arranque; notifica "servicio en línea". |
+| CA-06 | Salida de comando > 4096 chars | Respuesta truncada o enviada como documento. |
 
 ## 9. Roadmap posterior a v1
 
-- v1.1: panel de administración vía comando `/config` (alta/baja de sensores sin reiniciar).
+- v1.1: panel de administración vía comando `/config` (alta/baja de aliases sin reiniciar).
 - v1.2: métricas Prometheus + dashboard Grafana local.
 - v1.3: roles de usuario (admin / lector) y multi-idioma completo.
 - v2.0: plugin de domótica MQTT (integración Home Assistant).

@@ -46,7 +46,7 @@ def _get_cpu_temp() -> Optional[float]:
             return val / 1000.0
     except Exception:
         pass
-    # Fallback to sensors
+    # Fallback to psutil sensors_temperatures()
     try:
         temps = psutil.sensors_temperatures()
         for name, entries in temps.items():

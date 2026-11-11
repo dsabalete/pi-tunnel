@@ -17,7 +17,7 @@ The Dockerfile uses `python:3.11-slim-bookworm`, installs dependencies from `req
 
 ## Running
 
-Create data directory for SQLite persistence (required for alert cooldowns):
+Create data directory for SQLite persistence:
 ```bash
 mkdir -p data
 ```
@@ -29,24 +29,10 @@ docker compose up -d
 Volumes mounted:
 
 - `./config:/app/config:ro` — bot configuration (read-only)
-- `./data:/app/data` — SQLite database for alert cooldown persistence
+- `./data:/app/data` — SQLite database for command history persistence
 - Environment from `./config/pitunnel.env` via `env_file`
 
 Do not bake secrets into the image. `.dockerignore` excludes `config/*.env`.
-
-## Hardware Access
-
-GPIO / I2C requires host device access. Add an override:
-
-`docker-compose.override.yml`:
-```yaml
-services:
-  pitunnel:
-    privileged: true
-    devices:
-      - /dev/gpiomem:/dev/gpiomem
-      - /dev/i2c-1:/dev/i2c-1
-```
 
 ## Rollback
 
@@ -61,11 +47,9 @@ python -m pitunnel.main
 
 The `./data:/app/data` volume mount provides persistent storage for the SQLite database (`db.sqlite3`). This database stores:
 
-- Alert cooldown timestamps (per-rule `last_sent_ts`)
-- Sensor readings (if persistence enabled)
-- Command history (if storage layer enabled)
+- Command history
 
-The database is created automatically on first run. Cooldown state persists across container restarts.
+The database is created automatically on first run. History persists across container restarts.
 
 ## Notes
 
